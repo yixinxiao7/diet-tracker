@@ -1,0 +1,69 @@
+name: Deploy AWS Lambdas
+
+on:
+  push:
+    branches:
+      - main
+      - lambda-deployment
+
+jobs:
+  deploy-lambdas:
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        lambda-name:
+          - meals
+          - meal_logs
+          - summary
+          - users
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Pipenv
+        run: pip install pipenv
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Build Lambda package (${{ matrix.lambda-name }})
+        run: |
+          set -e
+
+          SRC_DIR=backend/lambdas/${{ matrix.lambda-name }}
+          BUILD_DIR=build/${{ matrix.lambda-name }}
+
+          mkdir -p $BUILD_DIR
+
+          # Copy Lambda source
+          cp -R $SRC_DIR/* $BUILD_DIR/
+
+          # Install dependencies from Pipfile
+          pipenv lock -r > requirements.txt
+          pip install -r requirements.txt --target $BUILD_DIR
+
+      - name: Deploy Lambda (${{ matrix.lambda-name }})
+        uses: aws-actions/aws-lambda-deploy@v1
+        with:
+          function-name: diet-tracker-${{ matrix.lambda-name }}
+          code-artifacts-dir: build/${{ matrix.lambda-name }}
+          runtime: python3.12
+          handler: handler.handler
+          environment: |
+            DB_SECRET_ARN=${{ secrets.DB_SECRET_ARN }}
+            DB_NAME=${{ secrets.DB_NAME }}
