@@ -1,20 +1,30 @@
 from backend.shared.auth import get_user_id
+from backend.shared.db import get_connection, get_internal_user_id
+from backend.shared.logging import get_logger
 from backend.shared.response import response
-from backend.shared.db import get_connection
+from backend.shared.validation import is_valid_date
+
+logger = get_logger(__name__)
 
 
 def get_daily_summary(event):
     """
     GET /daily-summary?date=YYYY-MM-DD
     """
-    user_id = get_user_id(event)
+    cognito_user_id = get_user_id(event)
     params = event.get("queryStringParameters") or {}
 
     date = params.get("date")
     if not date:
         return response(400, {"error": "Missing required query param: date"})
+    if not is_valid_date(date):
+        return response(400, {"error": "Invalid date format"})
 
     conn = get_connection()
+    user_id = get_internal_user_id(conn, cognito_user_id)
+    if not user_id:
+        conn.close()
+        return response(404, {"error": "User not found"})
     cur = conn.cursor()
 
     query = """
@@ -31,6 +41,7 @@ def get_daily_summary(event):
     cur.close()
     conn.close()
 
+    logger.info("Fetched daily summary", extra={"user_id": cognito_user_id, "date": date})
     return response(200, {
         "date": date,
         "total_calories": total_calories
@@ -41,7 +52,7 @@ def get_range_summary(event):
     """
     GET /daily-summary?from=YYYY-MM-DD&to=YYYY-MM-DD
     """
-    user_id = get_user_id(event)
+    cognito_user_id = get_user_id(event)
     params = event.get("queryStringParameters") or {}
 
     date_from = params.get("from")
@@ -51,8 +62,14 @@ def get_range_summary(event):
         return response(400, {
             "error": "Missing required query params: from, to"
         })
+    if not is_valid_date(date_from) or not is_valid_date(date_to):
+        return response(400, {"error": "Invalid date format"})
 
     conn = get_connection()
+    user_id = get_internal_user_id(conn, cognito_user_id)
+    if not user_id:
+        conn.close()
+        return response(404, {"error": "User not found"})
     cur = conn.cursor()
 
     query = """
@@ -79,6 +96,7 @@ def get_range_summary(event):
     cur.close()
     conn.close()
 
+    logger.info("Fetched range summary", extra={"user_id": cognito_user_id, "from": date_from, "to": date_to})
     return response(200, {
         "from": date_from,
         "to": date_to,

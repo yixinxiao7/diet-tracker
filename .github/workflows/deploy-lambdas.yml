@@ -48,10 +48,18 @@ jobs:
           SRC_DIR=backend/lambdas/${{ matrix.lambda-name }}
           BUILD_DIR=build/${{ matrix.lambda-name }}
 
-          mkdir -p $BUILD_DIR
+          mkdir -p $BUILD_DIR/backend/shared
+          mkdir -p $BUILD_DIR/backend/lambdas/${{ matrix.lambda-name }}
+
+          # Copy shared modules
+          cp backend/shared/*.py $BUILD_DIR/backend/shared/
+          touch $BUILD_DIR/backend/__init__.py
+          touch $BUILD_DIR/backend/shared/__init__.py
+          touch $BUILD_DIR/backend/lambdas/__init__.py
 
           # Copy Lambda source
-          cp -R $SRC_DIR/* $BUILD_DIR/
+          cp -R $SRC_DIR/* $BUILD_DIR/backend/lambdas/${{ matrix.lambda-name }}/
+          touch $BUILD_DIR/backend/lambdas/${{ matrix.lambda-name }}/__init__.py
 
           # Install dependencies from Pipfile
           pipenv lock -r > requirements.txt
@@ -63,7 +71,8 @@ jobs:
           function-name: diet-tracker-${{ matrix.lambda-name }}
           code-artifacts-dir: build/${{ matrix.lambda-name }}
           runtime: python3.12
-          handler: handler.handler
+          handler: backend.lambdas.${{ matrix.lambda-name }}.handler.handler
           environment: |
             DB_SECRET_ARN=${{ secrets.DB_SECRET_ARN }}
             DB_NAME=${{ secrets.DB_NAME }}
+            ALLOWED_ORIGIN=${{ secrets.ALLOWED_ORIGIN }}

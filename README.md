@@ -48,7 +48,7 @@ This project is designed to be **simple, secure, and free-tier friendly**, while
 
 ### Frontend
 
-* React (SPA)
+* Vite + React (SPA)
 * Hosted on Amazon S3 (static website hosting)
 * Cognito Hosted UI for authentication
 
@@ -88,6 +88,8 @@ This project is designed to be **simple, secure, and free-tier friendly**, while
 
 ## 🗄️ Database Schema (PostgreSQL)
 
+Canonical DDL lives in `infra/sql/schema.sql`.
+
 ### users
 
 * `id (UUID, PK)`
@@ -108,6 +110,7 @@ This project is designed to be **simple, secure, and free-tier friendly**, while
 * `id (UUID, PK)`
 * `user_id (FK → users)`
 * `name`
+* `total_calories`
 * `created_at`
 
 ### meal_ingredients
@@ -122,7 +125,8 @@ This project is designed to be **simple, secure, and free-tier friendly**, while
 * `id (UUID, PK)`
 * `user_id (FK → users)`
 * `meal_id (FK → meals)`
-* `consumed_at (date)`
+* `date (date)`
+* `quantity`
 
 ---
 
@@ -201,22 +205,13 @@ Below is the **complete set of API endpoints** required to support the applicati
   Authorization: Bearer <JWT>
   ```
 
-------|---------|------------|
-| POST | /meals | Create or update a meal |
-| GET | /meals | List meals |
-| POST | /ingredients | Create ingredient |
-| POST | /meal-logs | Log meal consumption |
-| GET | /daily-summary | Daily calorie total |
-
-All endpoints require a valid JWT.
-
 ---
 
 ## 📁 Repository Structure
 
 ```text
 diet-tracker/
-├── frontend/
+├── frontend/              # Vite + React SPA
 │   ├── package.json
 │   ├── public/
 │   └── src/
@@ -224,35 +219,58 @@ diet-tracker/
 │       ├── api/           # API client wrappers
 │       ├── components/    # Reusable UI components
 │       ├── pages/         # App pages / views
-│       └── App.tsx
+│       └── App.jsx
 │
 ├── backend/
 │   ├── lambdas/
-│   │   ├── daily_summary/
-│   │   │   └── handler.py
 │   │   ├── meals/
 │   │   │   └── handler.py
-│   │   └── meal_logs/
+│   │   ├── meal_logs/
+│   │   │   └── handler.py
+│   │   ├── summary/
+│   │   │   └── handler.py
+│   │   └── users/
 │   │       └── handler.py
 │   │
 │   ├── shared/
 │   │   ├── db.py          # DB connection logic
-│   │   └── auth.py        # Cognito claim helpers
+│   │   ├── auth.py        # Cognito claim helpers
+│   │   └── response.py    # JSON + CORS responses
 │   │
-│   └── requirements.txt
+│   ├── Pipfile
+│   └── Pipfile.lock
 │
 ├── infra/
-│   ├── sam/
-│   │   └── template.yaml
 │   └── sql/
 │       └── schema.sql
 │
 ├── .github/
 │   └── workflows/
-│       └── deploy-lambda.yml
+│       └── deploy-lambdas.yml
 │
+├── ARCHITECTURE.md
 ├── README.md
 └── .gitignore
+```
+
+---
+
+## 🧪 Local Development
+
+### Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+### Backend
+
+```bash
+cd backend
+pipenv install --dev
+pipenv run pytest
 ```
 
 ---
@@ -261,13 +279,19 @@ diet-tracker/
 
 ### Frontend
 
-1. Build React app
+1. Install dependencies
+
+   ```bash
+   cd frontend
+   npm install
+   ```
+2. Build the React app
 
    ```bash
    npm run build
    ```
-2. Upload build output to S3 bucket
-3. Enable static website hosting
+3. Upload `frontend/dist/` to the S3 bucket
+4. Enable static website hosting
 
 ### Backend (via GitHub Actions)
 
