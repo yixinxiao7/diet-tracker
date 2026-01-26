@@ -41,3 +41,14 @@ def get_connection():
     )
 
     return _connection
+
+
+def get_internal_user_id(conn, cognito_user_id):
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT id FROM users WHERE cognito_user_id = %s",
+        (cognito_user_id,)
+    )
+    row = cur.fetchone()
+    cur.close()
+    return row[0] if row else None

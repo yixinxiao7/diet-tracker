@@ -1,19 +1,187 @@
 import json
 from backend.shared.auth import get_user_id
+from backend.shared.db import get_connection, get_internal_user_id
+from backend.shared.logging import get_logger
 from backend.shared.response import response
+from backend.shared.validation import is_valid_uuid
+
+logger = get_logger(__name__)
 
 
 def create_ingredient(event):
-    body = json.loads(event["body"])
-    return response(201, {"message": "Ingredient created"})
+    cognito_user_id = get_user_id(event)
+    body = json.loads(event.get("body") or "{}")
+
+    name = body.get("name")
+    calories_per_unit = body.get("calories_per_unit")
+    unit = body.get("unit")
+
+    if not name or calories_per_unit is None or not unit:
+        return response(400, {
+            "error": "Missing required fields: name, calories_per_unit, unit"
+        })
+
+    conn = get_connection()
+    user_id = get_internal_user_id(conn, cognito_user_id)
+    if not user_id:
+        conn.close()
+        return response(404, {"error": "User not found"})
+
+    cur = conn.cursor()
+    cur.execute(
+        """
+        INSERT INTO ingredients (user_id, name, calories_per_unit, unit)
+        VALUES (%s, %s, %s, %s)
+        RETURNING id
+        """,
+        (user_id, name, calories_per_unit, unit)
+    )
+    ingredient_id = cur.fetchone()[0]
+    conn.commit()
+
+    cur.close()
+    conn.close()
+
+    return response(201, {
+        "id": ingredient_id,
+        "name": name,
+        "calories_per_unit": calories_per_unit,
+        "unit": unit
+    })
 
 def list_ingredients(event):
-    return response(200, {"ingredients": []})
+    cognito_user_id = get_user_id(event)
+    params = event.get("queryStringParameters") or {}
+    try:
+        limit = min(int(params.get("limit", 50)), 100)
+        offset = int(params.get("offset", 0))
+    except (TypeError, ValueError):
+        return response(400, {"error": "Invalid pagination parameters"})
+    if limit <= 0 or offset < 0:
+        return response(400, {"error": "Invalid pagination parameters"})
+
+    conn = get_connection()
+    user_id = get_internal_user_id(conn, cognito_user_id)
+    if not user_id:
+        conn.close()
+        return response(404, {"error": "User not found"})
+
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT id, name, calories_per_unit, unit
+        FROM ingredients
+        WHERE user_id = %s
+        ORDER BY name
+        LIMIT %s OFFSET %s
+        """,
+        (user_id, limit, offset)
+    )
+    ingredients = [
+        {
+            "id": row[0],
+            "name": row[1],
+            "calories_per_unit": row[2],
+            "unit": row[3]
+        }
+        for row in cur.fetchall()
+    ]
+
+    cur.close()
+    conn.close()
+
+    return response(200, {"ingredients": ingredients})
 
 def update_ingredient(event):
+    cognito_user_id = get_user_id(event)
     ingredient_id = event["pathParameters"]["id"]
-    return response(200, {"message": f"Ingredient {ingredient_id} updated"})
+    if not is_valid_uuid(ingredient_id):
+        return response(400, {"error": "Invalid ID format"})
+
+    body = json.loads(event.get("body") or "{}")
+
+    name = body.get("name")
+    calories_per_unit = body.get("calories_per_unit")
+    unit = body.get("unit")
+
+    if not name or calories_per_unit is None or not unit:
+        return response(400, {
+            "error": "Missing required fields: name, calories_per_unit, unit"
+        })
+
+    conn = get_connection()
+    user_id = get_internal_user_id(conn, cognito_user_id)
+    if not user_id:
+        conn.close()
+        return response(404, {"error": "User not found"})
+
+    cur = conn.cursor()
+    cur.execute(
+        """
+        UPDATE ingredients
+        SET name = %s, calories_per_unit = %s, unit = %s
+        WHERE id = %s AND user_id = %s
+        RETURNING id
+        """,
+        (name, calories_per_unit, unit, ingredient_id, user_id)
+    )
+    row = cur.fetchone()
+    conn.commit()
+
+    cur.close()
+    conn.close()
+
+    if not row:
+        return response(404, {"error": "Ingredient not found"})
+
+    logger.info("Updated ingredient", extra={"user_id": cognito_user_id, "ingredient_id": ingredient_id})
+    return response(200, {
+        "id": ingredient_id,
+        "name": name,
+        "calories_per_unit": calories_per_unit,
+        "unit": unit
+    })
 
 def delete_ingredient(event):
+    cognito_user_id = get_user_id(event)
     ingredient_id = event["pathParameters"]["id"]
+    if not is_valid_uuid(ingredient_id):
+        return response(400, {"error": "Invalid ID format"})
+
+    params = event.get("queryStringParameters") or {}
+    force = str(params.get("force", "false")).lower() in ("1", "true", "yes")
+
+    conn = get_connection()
+    user_id = get_internal_user_id(conn, cognito_user_id)
+    if not user_id:
+        conn.close()
+        return response(404, {"error": "User not found"})
+
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT COUNT(*) FROM meal_ingredients WHERE ingredient_id = %s",
+        (ingredient_id,)
+    )
+    usage_count = cur.fetchone()[0]
+    if usage_count > 0 and not force:
+        cur.close()
+        conn.close()
+        return response(409, {
+            "error": f"Ingredient is used in {usage_count} meal(s). Remove from meals first or use force=true."
+        })
+
+    cur.execute(
+        "DELETE FROM ingredients WHERE id = %s AND user_id = %s",
+        (ingredient_id, user_id)
+    )
+    deleted = cur.rowcount
+    conn.commit()
+
+    cur.close()
+    conn.close()
+
+    if deleted == 0:
+        return response(404, {"error": "Ingredient not found"})
+
+    logger.info("Deleted ingredient", extra={"user_id": cognito_user_id, "ingredient_id": ingredient_id})
     return response(204, None)
