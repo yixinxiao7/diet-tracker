@@ -62,7 +62,7 @@ jobs:
           touch $BUILD_DIR/backend/lambdas/${{ matrix.lambda-name }}/__init__.py
 
           # Install dependencies from Pipfile
-          pipenv requirements > requirements.txt
+          PIPENV_PIPFILE=backend/Pipfile pipenv requirements > requirements.txt
           pip install -r requirements.txt --target $BUILD_DIR
 
       - name: Deploy Lambda (${{ matrix.lambda-name }})
