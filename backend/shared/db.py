@@ -1,7 +1,9 @@
 import json
 import os
+import time
 import psycopg2
 import boto3
+from botocore.exceptions import BotoCoreError, ClientError
 
 # Cached across Lambda invocations (warm starts)
 _connection = None
@@ -17,10 +19,20 @@ def _get_db_secret():
     secret_arn = os.environ["DB_SECRET_ARN"]
 
     client = boto3.client("secretsmanager")
-    response = client.get_secret_value(SecretId=secret_arn)
+    last_exc = None
+    for attempt in range(3):
+        try:
+            response = client.get_secret_value(SecretId=secret_arn)
+            _secret_cache = json.loads(response["SecretString"])
+            return _secret_cache
+        except (ClientError, BotoCoreError) as exc:
+            last_exc = exc
+            if attempt < 2:
+                time.sleep(0.5 * (2 ** attempt))
+                continue
+            raise
 
-    _secret_cache = json.loads(response["SecretString"])
-    return _secret_cache
+    raise last_exc
 
 
 def get_connection():

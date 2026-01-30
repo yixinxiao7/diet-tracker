@@ -10,7 +10,10 @@ logger = get_logger(__name__)
 
 def create_ingredient(event):
     cognito_user_id = get_user_id(event)
-    body = json.loads(event.get("body") or "{}")
+    try:
+        body = json.loads(event.get("body") or "{}")
+    except json.JSONDecodeError:
+        return response(400, {"error": "Invalid JSON body"})
 
     name = body.get("name")
     calories_per_unit = body.get("calories_per_unit")
@@ -28,19 +31,20 @@ def create_ingredient(event):
         return response(404, {"error": "User not found"})
 
     cur = conn.cursor()
-    cur.execute(
-        """
-        INSERT INTO ingredients (user_id, name, calories_per_unit, unit)
-        VALUES (%s, %s, %s, %s)
-        RETURNING id
-        """,
-        (user_id, name, calories_per_unit, unit)
-    )
-    ingredient_id = cur.fetchone()[0]
-    conn.commit()
-
-    cur.close()
-    conn.close()
+    try:
+        cur.execute(
+            """
+            INSERT INTO ingredients (user_id, name, calories_per_unit, unit)
+            VALUES (%s, %s, %s, %s)
+            RETURNING id
+            """,
+            (user_id, name, calories_per_unit, unit)
+        )
+        ingredient_id = cur.fetchone()[0]
+        conn.commit()
+    finally:
+        cur.close()
+        conn.close()
 
     return response(201, {
         "id": ingredient_id,
@@ -53,6 +57,7 @@ def list_ingredients(event):
     cognito_user_id = get_user_id(event)
     params = event.get("queryStringParameters") or {}
     try:
+        # Default 50, max 100 items
         limit = min(int(params.get("limit", 50)), 100)
         offset = int(params.get("offset", 0))
     except (TypeError, ValueError):
@@ -67,28 +72,29 @@ def list_ingredients(event):
         return response(404, {"error": "User not found"})
 
     cur = conn.cursor()
-    cur.execute(
-        """
-        SELECT id, name, calories_per_unit, unit
-        FROM ingredients
-        WHERE user_id = %s
-        ORDER BY name
-        LIMIT %s OFFSET %s
-        """,
-        (user_id, limit, offset)
-    )
-    ingredients = [
-        {
-            "id": row[0],
-            "name": row[1],
-            "calories_per_unit": row[2],
-            "unit": row[3]
-        }
-        for row in cur.fetchall()
-    ]
-
-    cur.close()
-    conn.close()
+    try:
+        cur.execute(
+            """
+            SELECT id, name, calories_per_unit, unit
+            FROM ingredients
+            WHERE user_id = %s
+            ORDER BY name
+            LIMIT %s OFFSET %s
+            """,
+            (user_id, limit, offset)
+        )
+        ingredients = [
+            {
+                "id": row[0],
+                "name": row[1],
+                "calories_per_unit": row[2],
+                "unit": row[3]
+            }
+            for row in cur.fetchall()
+        ]
+    finally:
+        cur.close()
+        conn.close()
 
     return response(200, {"ingredients": ingredients})
 
@@ -98,7 +104,10 @@ def update_ingredient(event):
     if not is_valid_uuid(ingredient_id):
         return response(400, {"error": "Invalid ID format"})
 
-    body = json.loads(event.get("body") or "{}")
+    try:
+        body = json.loads(event.get("body") or "{}")
+    except json.JSONDecodeError:
+        return response(400, {"error": "Invalid JSON body"})
 
     name = body.get("name")
     calories_per_unit = body.get("calories_per_unit")
@@ -116,20 +125,21 @@ def update_ingredient(event):
         return response(404, {"error": "User not found"})
 
     cur = conn.cursor()
-    cur.execute(
-        """
-        UPDATE ingredients
-        SET name = %s, calories_per_unit = %s, unit = %s
-        WHERE id = %s AND user_id = %s
-        RETURNING id
-        """,
-        (name, calories_per_unit, unit, ingredient_id, user_id)
-    )
-    row = cur.fetchone()
-    conn.commit()
-
-    cur.close()
-    conn.close()
+    try:
+        cur.execute(
+            """
+            UPDATE ingredients
+            SET name = %s, calories_per_unit = %s, unit = %s
+            WHERE id = %s AND user_id = %s
+            RETURNING id
+            """,
+            (name, calories_per_unit, unit, ingredient_id, user_id)
+        )
+        row = cur.fetchone()
+        conn.commit()
+    finally:
+        cur.close()
+        conn.close()
 
     if not row:
         return response(404, {"error": "Ingredient not found"})
@@ -158,27 +168,26 @@ def delete_ingredient(event):
         return response(404, {"error": "User not found"})
 
     cur = conn.cursor()
-    cur.execute(
-        "SELECT COUNT(*) FROM meal_ingredients WHERE ingredient_id = %s",
-        (ingredient_id,)
-    )
-    usage_count = cur.fetchone()[0]
-    if usage_count > 0 and not force:
+    try:
+        cur.execute(
+            "SELECT COUNT(*) FROM meal_ingredients WHERE ingredient_id = %s",
+            (ingredient_id,)
+        )
+        usage_count = cur.fetchone()[0]
+        if usage_count > 0 and not force:
+            return response(409, {
+                "error": f"Ingredient is used in {usage_count} meal(s). Remove from meals first or use force=true."
+            })
+
+        cur.execute(
+            "DELETE FROM ingredients WHERE id = %s AND user_id = %s",
+            (ingredient_id, user_id)
+        )
+        deleted = cur.rowcount
+        conn.commit()
+    finally:
         cur.close()
         conn.close()
-        return response(409, {
-            "error": f"Ingredient is used in {usage_count} meal(s). Remove from meals first or use force=true."
-        })
-
-    cur.execute(
-        "DELETE FROM ingredients WHERE id = %s AND user_id = %s",
-        (ingredient_id, user_id)
-    )
-    deleted = cur.rowcount
-    conn.commit()
-
-    cur.close()
-    conn.close()
 
     if deleted == 0:
         return response(404, {"error": "Ingredient not found"})

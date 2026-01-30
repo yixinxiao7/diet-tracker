@@ -159,6 +159,8 @@ Below is the **complete set of API endpoints** required to support the applicati
 | PUT    | `/meals/{id}` | Update a meal                  |
 | DELETE | `/meals/{id}` | Delete a meal                  |
 
+List endpoints support optional pagination query params: `limit` and `offset`.
+
 ---
 
 ### 🗓️ Meal Logs
@@ -170,6 +172,8 @@ Below is the **complete set of API endpoints** required to support the applicati
 | POST   | `/meal-logs`      | Log a meal for a specific date         |
 | GET    | `/meal-logs`      | List logged meals (filterable by date) |
 | DELETE | `/meal-logs/{id}` | Delete a logged meal                   |
+
+`/meal-logs` supports optional `from` and `to` date filters plus `limit` and `offset`.
 
 ---
 
@@ -235,8 +239,11 @@ diet-tracker/
 │   ├── shared/
 │   │   ├── db.py          # DB connection logic
 │   │   ├── auth.py        # Cognito claim helpers
-│   │   └── response.py    # JSON + CORS responses
+│   │   ├── response.py    # JSON + CORS responses
+│   │   ├── validation.py  # UUID/date validation helpers
+│   │   └── logging.py     # Structured logger helper
 │   │
+│   ├── tests/             # Pytest suite
 │   ├── Pipfile
 │   └── Pipfile.lock
 │
@@ -295,9 +302,9 @@ pipenv run pytest
 
 ### Backend (via GitHub Actions)
 
-* Push to `main` branch triggers deployment
+* Push to `main` or `lambda-deployment` branch triggers deployment
 * Lambda functions packaged and deployed
-* Environment variables injected at deploy time
+* Environment variables injected at deploy time: `DB_SECRET_ARN`, `DB_NAME`, `ALLOWED_ORIGIN` (optional `LOG_LEVEL`)
 
 ---
 

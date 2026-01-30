@@ -26,10 +26,11 @@ This repository implements a small, serverless diet-tracking application on AWS.
 ```
 backend/
   lambdas/        # Domain-specific Lambda handlers
-  shared/         # Auth helpers, DB connection, response helpers
+  shared/         # Auth, DB, response, validation, logging helpers
+  tests/          # Pytest suite for backend
 infra/sql/        # Database schema
-frontend/         # React SPA source (planned)
+frontend/         # Vite + React SPA source
 ```
 
 ## Deployment Notes
-Lambdas are deployed via GitHub Actions using OIDC-based AWS credentials. Environment variables `DB_SECRET_ARN` and `DB_NAME` must be configured for each Lambda.
+Lambdas are deployed via GitHub Actions using OIDC-based AWS credentials. Environment variables `DB_SECRET_ARN`, `DB_NAME`, and `ALLOWED_ORIGIN` must be configured for each Lambda. `LOG_LEVEL` is optional for runtime logging.

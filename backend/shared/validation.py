@@ -12,8 +12,12 @@ def is_valid_uuid(value):
 
 
 def is_valid_date(value):
+    if not value or not isinstance(value, str):
+        return False
+    if not re.match(r"^\d{4}-\d{2}-\d{2}$", value):
+        return False
     try:
         datetime.strptime(value, "%Y-%m-%d")
         return True
-    except (ValueError, TypeError):
+    except ValueError:
         return False

@@ -10,6 +10,7 @@ psycopg2-binary = "*"
 [dev-packages]
 pytest = "*"
 pytest-mock = "*"
+pytest-cov = "*"
 
 [requires]
 python_version = "3.12"
