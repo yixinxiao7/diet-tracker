@@ -24,6 +24,29 @@ function formatDateInput(date) {
   return `${year}-${month}-${day}`
 }
 
+function normalizeIngredientName(name) {
+  return String(name || '').trim().toLowerCase()
+}
+
+function isDuplicateIngredientName(name, ingredients) {
+  const target = normalizeIngredientName(name)
+  if (!target) return false
+  return ingredients.some((item) => normalizeIngredientName(item.name) === target)
+}
+
+function normalizeMealName(name) {
+  return String(name || '').trim().toLowerCase()
+}
+
+function isDuplicateMealName(name, meals, ignoreId) {
+  const target = normalizeMealName(name)
+  if (!target) return false
+  return meals.some((meal) => {
+    if (ignoreId && meal.id === ignoreId) return false
+    return normalizeMealName(meal.name) === target
+  })
+}
+
 function App() {
   const [authStatus, setAuthStatus] = useState('checking')
   const [authError, setAuthError] = useState('')
@@ -153,6 +176,10 @@ function App() {
   const handleCreateIngredient = async (event) => {
     event.preventDefault()
     setIngredientsError('')
+    if (isDuplicateIngredientName(ingredientForm.name, ingredients)) {
+      setIngredientsError('Ingredient name already exists')
+      return
+    }
     try {
       await apiPost('/ingredients', {
         name: ingredientForm.name.trim(),
@@ -207,6 +234,10 @@ function App() {
   const handleCreateMeal = async (event) => {
     event.preventDefault()
     setMealsError('')
+    if (isDuplicateMealName(mealDraft.name, meals)) {
+      setMealsError('Meal name already exists')
+      return
+    }
     try {
       await apiPost('/meals', {
         name: mealDraft.name.trim(),
@@ -243,6 +274,10 @@ function App() {
   const handleUpdateMeal = async () => {
     if (!selectedMealId) return
     setMealsError('')
+    if (isDuplicateMealName(mealDraft.name, meals, selectedMealId)) {
+      setMealsError('Meal name already exists')
+      return
+    }
     try {
       await apiPut(`/meals/${selectedMealId}`, {
         name: mealDraft.name.trim(),
@@ -400,8 +435,9 @@ function App() {
 
             <form className="card form" onSubmit={handleCreateIngredient}>
               <div className="field">
-                <label>Name</label>
+                <label htmlFor="ingredient-name">Name</label>
                 <input
+                  id="ingredient-name"
                   value={ingredientForm.name}
                   onChange={(event) =>
                     setIngredientForm((current) => ({ ...current, name: event.target.value }))
@@ -411,8 +447,9 @@ function App() {
                 />
               </div>
               <div className="field">
-                <label>Calories per unit</label>
+                <label htmlFor="ingredient-calories">Calories per unit</label>
                 <input
+                  id="ingredient-calories"
                   type="number"
                   min="0"
                   value={ingredientForm.calories}
@@ -424,8 +461,9 @@ function App() {
                 />
               </div>
               <div className="field">
-                <label>Unit</label>
+                <label htmlFor="ingredient-unit">Unit</label>
                 <input
+                  id="ingredient-unit"
                   value={ingredientForm.unit}
                   onChange={(event) =>
                     setIngredientForm((current) => ({ ...current, unit: event.target.value }))
@@ -478,8 +516,9 @@ function App() {
 
             <form className="card form" onSubmit={handleCreateMeal}>
               <div className="field">
-                <label>Meal name</label>
+                <label htmlFor="meal-name">Meal name</label>
                 <input
+                  id="meal-name"
                   value={mealDraft.name}
                   onChange={(event) =>
                     setMealDraft((current) => ({ ...current, name: event.target.value }))
@@ -490,8 +529,9 @@ function App() {
               </div>
               <div className="inline-group">
                 <div className="field">
-                  <label>Ingredient</label>
+                  <label htmlFor="meal-ingredient">Ingredient</label>
                   <select
+                    id="meal-ingredient"
                     value={mealItemDraft.ingredientId}
                     onChange={(event) =>
                       setMealItemDraft((current) => ({
@@ -509,8 +549,9 @@ function App() {
                   </select>
                 </div>
                 <div className="field">
-                  <label>Quantity</label>
+                  <label htmlFor="meal-ingredient-quantity">Quantity</label>
                   <input
+                    id="meal-ingredient-quantity"
                     type="number"
                     min="0"
                     step="0.1"
@@ -632,8 +673,9 @@ function App() {
 
             <form className="card form" onSubmit={handleCreateLog}>
               <div className="field">
-                <label>Meal</label>
+                <label htmlFor="log-meal">Meal</label>
                 <select
+                  id="log-meal"
                   value={logForm.mealId}
                   onChange={(event) =>
                     setLogForm((current) => ({ ...current, mealId: event.target.value }))
@@ -649,8 +691,9 @@ function App() {
                 </select>
               </div>
               <div className="field">
-                <label>Date</label>
+                <label htmlFor="log-date">Date</label>
                 <input
+                  id="log-date"
                   type="date"
                   value={logForm.date}
                   onChange={(event) =>
@@ -660,8 +703,9 @@ function App() {
                 />
               </div>
               <div className="field">
-                <label>Quantity</label>
+                <label htmlFor="log-quantity">Quantity</label>
                 <input
+                  id="log-quantity"
                   type="number"
                   min="1"
                   step="1"
@@ -718,8 +762,9 @@ function App() {
               <form className="card form" onSubmit={handleDailySummary}>
                 <h3>Daily total</h3>
                 <div className="field">
-                  <label>Date</label>
+                  <label htmlFor="summary-date">Date</label>
                   <input
+                    id="summary-date"
                     type="date"
                     value={dailyDate}
                     onChange={(event) => setDailyDate(event.target.value)}
@@ -742,8 +787,9 @@ function App() {
               <form className="card form" onSubmit={handleRangeSummary}>
                 <h3>Date range</h3>
                 <div className="field">
-                  <label>From</label>
+                  <label htmlFor="range-from">From</label>
                   <input
+                    id="range-from"
                     type="date"
                     value={rangeFrom}
                     onChange={(event) => setRangeFrom(event.target.value)}
@@ -751,8 +797,9 @@ function App() {
                   />
                 </div>
                 <div className="field">
-                  <label>To</label>
+                  <label htmlFor="range-to">To</label>
                   <input
+                    id="range-to"
                     type="date"
                     value={rangeTo}
                     onChange={(event) => setRangeTo(event.target.value)}

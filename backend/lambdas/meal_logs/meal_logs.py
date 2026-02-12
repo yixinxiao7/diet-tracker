@@ -3,7 +3,12 @@ from backend.shared.auth import get_user_id
 from backend.shared.db import get_connection, get_internal_user_id
 from backend.shared.logging import get_logger
 from backend.shared.response import response
-from backend.shared.validation import is_valid_date, is_valid_uuid
+from backend.shared.validation import (
+    is_valid_date,
+    is_valid_uuid,
+    get_path_param,
+    validate_int_quantity,
+)
 
 logger = get_logger(__name__)
 
@@ -34,10 +39,11 @@ def create_meal_log(event):
         return response(400, {"error": "Invalid ID format"})
     if not is_valid_date(date):
         return response(400, {"error": "Invalid date format"})
-    if not isinstance(quantity, int) or isinstance(quantity, bool):
-        return response(400, {"error": "Quantity must be an integer"})
-    if quantity <= 0:
-        return response(400, {"error": "Quantity must be greater than 0"})
+
+    # Validate quantity with upper bounds
+    quantity_error = validate_int_quantity(quantity)
+    if quantity_error:
+        return response(400, {"error": quantity_error})
 
     conn = get_connection()
     user_id = get_internal_user_id(conn, cognito_user_id)
@@ -153,7 +159,7 @@ def delete_meal_log(event):
     DELETE /meal-logs/{id}
     """
     cognito_user_id = get_user_id(event)
-    log_id = event["pathParameters"]["id"]
+    log_id = get_path_param(event, "id")
     if not is_valid_uuid(log_id):
         return response(400, {"error": "Invalid ID format"})
 

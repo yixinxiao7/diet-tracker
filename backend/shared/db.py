@@ -35,11 +35,30 @@ def _get_db_secret():
     raise last_exc
 
 
+def _is_connection_healthy(conn):
+    """Check if the connection is still valid by running a simple query."""
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT 1")
+        cur.close()
+        return True
+    except Exception:
+        return False
+
+
 def get_connection():
     global _connection
 
+    # Check if existing connection is healthy
     if _connection and _connection.closed == 0:
-        return _connection
+        if _is_connection_healthy(_connection):
+            return _connection
+        # Connection is broken, close and recreate
+        try:
+            _connection.close()
+        except Exception:
+            pass
+        _connection = None
 
     secret = _get_db_secret()
 
@@ -49,7 +68,8 @@ def get_connection():
         password=secret["password"],
         port=secret.get("port", 5432),
         dbname=os.environ["DB_NAME"],
-        connect_timeout=5
+        connect_timeout=5,
+        options="-c statement_timeout=30000"  # 30 second statement timeout
     )
 
     return _connection

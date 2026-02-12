@@ -17,8 +17,11 @@ from backend.lambdas.meals.meals import (
 
 
 def handler(event, context):
-    method = event["httpMethod"]
-    resource = event["resource"]
+    method = event.get("httpMethod")
+    resource = event.get("resource")
+
+    if not method or not resource:
+        return response(400, {"error": "Invalid request"})
 
     # Ingredients
     if resource == "/ingredients" and method == "POST":

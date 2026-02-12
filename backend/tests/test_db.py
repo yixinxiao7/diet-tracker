@@ -49,9 +49,19 @@ def test_get_db_secret_and_connection_cache(monkeypatch):
                 "port": 5432
             })}
 
+    class FakeHealthCursor:
+        def execute(self, *args, **kwargs):
+            pass
+
+        def close(self):
+            pass
+
     class FakePsycopgConn:
         def __init__(self):
             self.closed = 0
+
+        def cursor(self):
+            return FakeHealthCursor()
 
     def fake_connect(**kwargs):
         calls["connect"] += 1

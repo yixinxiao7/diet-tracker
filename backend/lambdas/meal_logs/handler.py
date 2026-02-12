@@ -8,8 +8,11 @@ from backend.lambdas.meal_logs.meal_logs import (
 
 
 def handler(event, context):
-    method = event["httpMethod"]
-    resource = event["resource"]
+    method = event.get("httpMethod")
+    resource = event.get("resource")
+
+    if not method or not resource:
+        return response(400, {"error": "Invalid request"})
 
     if resource == "/meal-logs" and method == "POST":
         return create_meal_log(event)

@@ -3,6 +3,7 @@ import { generatePkcePair, randomString } from './pkce'
 const TOKEN_STORAGE_KEY = 'diet_tracker_tokens'
 const PKCE_VERIFIER_KEY = 'diet_tracker_pkce_verifier'
 const AUTH_STATE_KEY = 'diet_tracker_auth_state'
+const AUTH_BYPASS = ['true', '1'].includes(import.meta.env.VITE_AUTH_BYPASS)
 
 function normalizeDomain(domain) {
   if (!domain) return ''
@@ -21,6 +22,7 @@ export function getAuthConfig() {
 }
 
 export function getAuthConfigErrors() {
+  if (AUTH_BYPASS) return []
   const config = getAuthConfig()
   const missing = []
   if (!config.domain) missing.push('VITE_COGNITO_DOMAIN')
@@ -32,6 +34,26 @@ export function getAuthConfigErrors() {
 
 function storeTokens(tokens) {
   localStorage.setItem(TOKEN_STORAGE_KEY, JSON.stringify(tokens))
+}
+
+function createBypassTokens() {
+  const header = btoa(JSON.stringify({ alg: 'none', typ: 'JWT' }))
+  const payload = btoa(JSON.stringify({ email: 'test@example.com' }))
+  const expiresAt = Date.now() + 60 * 60 * 1000
+  return {
+    access_token: `${header}.${payload}.signature`,
+    id_token: `${header}.${payload}.signature`,
+    refresh_token: 'bypass',
+    expires_at: expiresAt,
+  }
+}
+
+function ensureBypassTokens() {
+  const tokens = getStoredTokens()
+  if (tokens?.access_token) return tokens
+  const next = createBypassTokens()
+  storeTokens(next)
+  return next
 }
 
 export function clearTokens() {
@@ -126,6 +148,10 @@ async function refreshTokens(refreshToken) {
 }
 
 export async function login() {
+  if (AUTH_BYPASS) {
+    ensureBypassTokens()
+    return
+  }
   const { verifier, challenge } = await generatePkcePair()
   const state = randomString(32)
 
@@ -136,6 +162,7 @@ export async function login() {
 }
 
 export async function handleAuthCallback() {
+  if (AUTH_BYPASS) return null
   const params = new URLSearchParams(window.location.search)
   const error = params.get('error')
   if (error) {
@@ -173,6 +200,9 @@ export async function handleAuthCallback() {
 }
 
 export async function getAccessToken() {
+  if (AUTH_BYPASS) {
+    return ensureBypassTokens().access_token
+  }
   const tokens = getStoredTokens()
   if (!tokens || !tokens.access_token) return null
 
@@ -196,6 +226,10 @@ export async function getAccessToken() {
 }
 
 export function logout() {
+  if (AUTH_BYPASS) {
+    clearTokens()
+    return
+  }
   const { domain, clientId, logoutUri } = getAuthConfig()
   clearTokens()
   const params = new URLSearchParams({
