@@ -5,7 +5,8 @@ These tests verify that users cannot access, modify, or delete
 other users' data. This is critical for security.
 """
 import json
-from datetime import date
+import uuid
+from datetime import date, datetime
 import pytest
 
 from backend.lambdas.meals.ingredients import (
@@ -32,21 +33,18 @@ from backend.lambdas.summary.summary import (
 
 
 @pytest.fixture
-def user_a_data(db_connection, test_user, test_ingredient, test_meal):
+def user_a_data(mock_db_connection, test_user, test_ingredient, test_meal):
     """Data belonging to user A (test_user)."""
+    conn, mock_db = mock_db_connection
     # Create a meal log for user A
-    cur = db_connection.cursor()
-    cur.execute(
-        """
-        INSERT INTO meal_logs (user_id, meal_id, date, quantity)
-        VALUES (%s, %s, %s, %s)
-        RETURNING id
-        """,
-        (test_user["id"], test_meal["id"], date.today(), 2)
-    )
-    meal_log_id = cur.fetchone()[0]
-    db_connection.commit()
-    cur.close()
+    meal_log_id = str(uuid.uuid4())
+    mock_db["meal_logs"][meal_log_id] = {
+        "id": meal_log_id,
+        "user_id": test_user["id"],
+        "meal_id": test_meal["id"],
+        "date": date.today(),
+        "quantity": 2
+    }
 
     return {
         "user": test_user,
@@ -57,25 +55,24 @@ def user_a_data(db_connection, test_user, test_ingredient, test_meal):
 
 
 @pytest.fixture
-def user_b(db_connection, clean_tables):
+def user_b(mock_db_connection):
     """Create a second user (user B)."""
-    cur = db_connection.cursor()
-    cur.execute(
-        """
-        INSERT INTO users (cognito_user_id, email)
-        VALUES (%s, %s)
-        RETURNING id, cognito_user_id, email
-        """,
-        ("user-b-cognito-id", "userb@example.com")
-    )
-    row = cur.fetchone()
-    db_connection.commit()
-    cur.close()
+    conn, mock_db = mock_db_connection
+    user_id = str(uuid.uuid4())
+    cognito_id = "user-b-cognito-id"
+    email = "userb@example.com"
+
+    mock_db["users"][user_id] = {
+        "id": user_id,
+        "cognito_user_id": cognito_id,
+        "email": email,
+        "created_at": datetime.now()
+    }
 
     return {
-        "id": row[0],
-        "cognito_user_id": row[1],
-        "email": row[2]
+        "id": user_id,
+        "cognito_user_id": cognito_id,
+        "email": email
     }
 
 
@@ -83,20 +80,20 @@ class TestIngredientAuthorization:
     """Test that users cannot access other users' ingredients."""
 
     def test_list_ingredients_only_shows_own(
-        self, mock_db_connection, mock_event_factory, user_a_data, user_b, db_connection
+        self, mock_db_connection, mock_event_factory, user_a_data, user_b
     ):
         """User B should not see User A's ingredients."""
+        conn, mock_db = mock_db_connection
+
         # Create an ingredient for user B
-        cur = db_connection.cursor()
-        cur.execute(
-            """
-            INSERT INTO ingredients (user_id, name, calories_per_unit, unit)
-            VALUES (%s, %s, %s, %s)
-            """,
-            (user_b["id"], "User B Ingredient", 50, "g")
-        )
-        db_connection.commit()
-        cur.close()
+        ing_id = str(uuid.uuid4())
+        mock_db["ingredients"][ing_id] = {
+            "id": ing_id,
+            "user_id": user_b["id"],
+            "name": "User B Ingredient",
+            "calories_per_unit": 50,
+            "unit": "g"
+        }
 
         # List as user B
         event = mock_event_factory(
@@ -136,9 +133,10 @@ class TestIngredientAuthorization:
         assert response["statusCode"] == 404
 
     def test_delete_other_users_ingredient_fails(
-        self, mock_db_connection, mock_event_factory, user_a_data, user_b, db_connection
+        self, mock_db_connection, mock_event_factory, user_a_data, user_b
     ):
         """User B should not be able to delete User A's ingredient."""
+        conn, mock_db = mock_db_connection
         ingredient_id = user_a_data["ingredient"]["id"]
 
         event = mock_event_factory(
@@ -154,30 +152,27 @@ class TestIngredientAuthorization:
         assert response["statusCode"] == 404
 
         # Verify ingredient still exists
-        cur = db_connection.cursor()
-        cur.execute("SELECT id FROM ingredients WHERE id = %s", (ingredient_id,))
-        assert cur.fetchone() is not None
-        cur.close()
+        assert ingredient_id in mock_db["ingredients"]
 
 
 class TestMealAuthorization:
     """Test that users cannot access other users' meals."""
 
     def test_list_meals_only_shows_own(
-        self, mock_db_connection, mock_event_factory, user_a_data, user_b, db_connection
+        self, mock_db_connection, mock_event_factory, user_a_data, user_b
     ):
         """User B should not see User A's meals."""
+        conn, mock_db = mock_db_connection
+
         # Create a meal for user B
-        cur = db_connection.cursor()
-        cur.execute(
-            """
-            INSERT INTO meals (user_id, name, total_calories)
-            VALUES (%s, %s, %s)
-            """,
-            (user_b["id"], "User B Meal", 100)
-        )
-        db_connection.commit()
-        cur.close()
+        meal_id = str(uuid.uuid4())
+        mock_db["meals"][meal_id] = {
+            "id": meal_id,
+            "user_id": user_b["id"],
+            "name": "User B Meal",
+            "total_calories": 100,
+            "created_at": datetime.now()
+        }
 
         # List as user B
         event = mock_event_factory(
@@ -211,22 +206,20 @@ class TestMealAuthorization:
         assert response["statusCode"] == 404
 
     def test_update_other_users_meal_fails(
-        self, mock_db_connection, mock_event_factory, user_a_data, user_b, db_connection
+        self, mock_db_connection, mock_event_factory, user_a_data, user_b
     ):
         """User B should not be able to update User A's meal."""
-        # Create an ingredient for user B to use
-        cur = db_connection.cursor()
-        cur.execute(
-            """
-            INSERT INTO ingredients (user_id, name, calories_per_unit, unit)
-            VALUES (%s, %s, %s, %s)
-            RETURNING id
-            """,
-            (user_b["id"], "User B Ingredient", 50, "g")
-        )
-        user_b_ingredient_id = cur.fetchone()[0]
-        db_connection.commit()
-        cur.close()
+        conn, mock_db = mock_db_connection
+
+        # Create an ingredient for user B
+        ing_id = str(uuid.uuid4())
+        mock_db["ingredients"][ing_id] = {
+            "id": ing_id,
+            "user_id": user_b["id"],
+            "name": "User B Ingredient",
+            "calories_per_unit": 50,
+            "unit": "g"
+        }
 
         event = mock_event_factory(
             method="PUT",
@@ -235,7 +228,7 @@ class TestMealAuthorization:
             body={
                 "name": "Hacked Meal",
                 "ingredients": [
-                    {"ingredient_id": str(user_b_ingredient_id), "quantity": 1}
+                    {"ingredient_id": ing_id, "quantity": 1}
                 ]
             },
             cognito_user_id=user_b["cognito_user_id"]
@@ -246,9 +239,10 @@ class TestMealAuthorization:
         assert response["statusCode"] == 404
 
     def test_delete_other_users_meal_fails(
-        self, mock_db_connection, mock_event_factory, user_a_data, user_b, db_connection
+        self, mock_db_connection, mock_event_factory, user_a_data, user_b
     ):
         """User B should not be able to delete User A's meal."""
+        conn, mock_db = mock_db_connection
         meal_id = user_a_data["meal"]["id"]
 
         event = mock_event_factory(
@@ -263,10 +257,7 @@ class TestMealAuthorization:
         assert response["statusCode"] == 404
 
         # Verify meal still exists
-        cur = db_connection.cursor()
-        cur.execute("SELECT id FROM meals WHERE id = %s", (meal_id,))
-        assert cur.fetchone() is not None
-        cur.close()
+        assert meal_id in mock_db["meals"]
 
     def test_create_meal_with_other_users_ingredient_fails(
         self, mock_db_connection, mock_event_factory, user_a_data, user_b
@@ -296,30 +287,30 @@ class TestMealLogAuthorization:
     """Test that users cannot access other users' meal logs."""
 
     def test_list_meal_logs_only_shows_own(
-        self, mock_db_connection, mock_event_factory, user_a_data, user_b, db_connection
+        self, mock_db_connection, mock_event_factory, user_a_data, user_b
     ):
         """User B should not see User A's meal logs."""
-        # Create a meal and log for user B
-        cur = db_connection.cursor()
-        cur.execute(
-            """
-            INSERT INTO meals (user_id, name, total_calories)
-            VALUES (%s, %s, %s)
-            RETURNING id
-            """,
-            (user_b["id"], "User B Meal", 100)
-        )
-        user_b_meal_id = cur.fetchone()[0]
+        conn, mock_db = mock_db_connection
 
-        cur.execute(
-            """
-            INSERT INTO meal_logs (user_id, meal_id, date, quantity)
-            VALUES (%s, %s, %s, %s)
-            """,
-            (user_b["id"], user_b_meal_id, date.today(), 1)
-        )
-        db_connection.commit()
-        cur.close()
+        # Create a meal for user B
+        meal_id = str(uuid.uuid4())
+        mock_db["meals"][meal_id] = {
+            "id": meal_id,
+            "user_id": user_b["id"],
+            "name": "User B Meal",
+            "total_calories": 100,
+            "created_at": datetime.now()
+        }
+
+        # Create a meal log for user B
+        log_id = str(uuid.uuid4())
+        mock_db["meal_logs"][log_id] = {
+            "id": log_id,
+            "user_id": user_b["id"],
+            "meal_id": meal_id,
+            "date": date.today(),
+            "quantity": 1
+        }
 
         # List as user B
         event = mock_event_factory(
@@ -338,9 +329,10 @@ class TestMealLogAuthorization:
         assert body["meal_logs"][0]["meal_name"] == "User B Meal"
 
     def test_delete_other_users_meal_log_fails(
-        self, mock_db_connection, mock_event_factory, user_a_data, user_b, db_connection
+        self, mock_db_connection, mock_event_factory, user_a_data, user_b
     ):
         """User B should not be able to delete User A's meal log."""
+        conn, mock_db = mock_db_connection
         log_id = user_a_data["meal_log_id"]
 
         event = mock_event_factory(
@@ -355,10 +347,7 @@ class TestMealLogAuthorization:
         assert response["statusCode"] == 404
 
         # Verify log still exists
-        cur = db_connection.cursor()
-        cur.execute("SELECT id FROM meal_logs WHERE id = %s", (log_id,))
-        assert cur.fetchone() is not None
-        cur.close()
+        assert log_id in mock_db["meal_logs"]
 
     def test_create_meal_log_with_other_users_meal_fails(
         self, mock_db_connection, mock_event_factory, user_a_data, user_b
@@ -387,32 +376,31 @@ class TestSummaryAuthorization:
     """Test that summaries only include user's own data."""
 
     def test_daily_summary_only_includes_own_data(
-        self, mock_db_connection, mock_event_factory, user_a_data, user_b, db_connection
+        self, mock_db_connection, mock_event_factory, user_a_data, user_b
     ):
         """User B's daily summary should not include User A's calories."""
+        conn, mock_db = mock_db_connection
         today = date.today()
 
-        # Create a meal and log for user B
-        cur = db_connection.cursor()
-        cur.execute(
-            """
-            INSERT INTO meals (user_id, name, total_calories)
-            VALUES (%s, %s, %s)
-            RETURNING id
-            """,
-            (user_b["id"], "User B Meal", 50)
-        )
-        user_b_meal_id = cur.fetchone()[0]
+        # Create a meal for user B
+        meal_id = str(uuid.uuid4())
+        mock_db["meals"][meal_id] = {
+            "id": meal_id,
+            "user_id": user_b["id"],
+            "name": "User B Meal",
+            "total_calories": 50,
+            "created_at": datetime.now()
+        }
 
-        cur.execute(
-            """
-            INSERT INTO meal_logs (user_id, meal_id, date, quantity)
-            VALUES (%s, %s, %s, %s)
-            """,
-            (user_b["id"], user_b_meal_id, today, 1)  # 50 calories
-        )
-        db_connection.commit()
-        cur.close()
+        # Create a meal log for user B
+        log_id = str(uuid.uuid4())
+        mock_db["meal_logs"][log_id] = {
+            "id": log_id,
+            "user_id": user_b["id"],
+            "meal_id": meal_id,
+            "date": today,
+            "quantity": 1
+        }
 
         # Get daily summary for user B
         event = mock_event_factory(
@@ -431,32 +419,31 @@ class TestSummaryAuthorization:
         assert body["total_calories"] == 50
 
     def test_range_summary_only_includes_own_data(
-        self, mock_db_connection, mock_event_factory, user_a_data, user_b, db_connection
+        self, mock_db_connection, mock_event_factory, user_a_data, user_b
     ):
         """User B's range summary should not include User A's data."""
+        conn, mock_db = mock_db_connection
         today = date.today()
 
-        # Create a meal and log for user B
-        cur = db_connection.cursor()
-        cur.execute(
-            """
-            INSERT INTO meals (user_id, name, total_calories)
-            VALUES (%s, %s, %s)
-            RETURNING id
-            """,
-            (user_b["id"], "User B Meal", 75)
-        )
-        user_b_meal_id = cur.fetchone()[0]
+        # Create a meal for user B
+        meal_id = str(uuid.uuid4())
+        mock_db["meals"][meal_id] = {
+            "id": meal_id,
+            "user_id": user_b["id"],
+            "name": "User B Meal",
+            "total_calories": 75,
+            "created_at": datetime.now()
+        }
 
-        cur.execute(
-            """
-            INSERT INTO meal_logs (user_id, meal_id, date, quantity)
-            VALUES (%s, %s, %s, %s)
-            """,
-            (user_b["id"], user_b_meal_id, today, 1)
-        )
-        db_connection.commit()
-        cur.close()
+        # Create a meal log for user B
+        log_id = str(uuid.uuid4())
+        mock_db["meal_logs"][log_id] = {
+            "id": log_id,
+            "user_id": user_b["id"],
+            "meal_id": meal_id,
+            "date": today,
+            "quantity": 1
+        }
 
         # Get range summary for user B
         event = mock_event_factory(

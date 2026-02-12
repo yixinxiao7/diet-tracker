@@ -171,20 +171,20 @@ class TestListIngredients:
         assert body["ingredients"][0]["name"] == "Test Ingredient"
 
     def test_list_ingredients_pagination(
-        self, mock_db_connection, mock_event_factory, test_user, db_connection
+        self, mock_db_connection, mock_event_factory, test_user
     ):
-        # Create multiple ingredients
-        cur = db_connection.cursor()
+        conn, mock_db = mock_db_connection
+        # Create multiple ingredients directly in mock_db
+        import uuid
         for i in range(5):
-            cur.execute(
-                """
-                INSERT INTO ingredients (user_id, name, calories_per_unit, unit)
-                VALUES (%s, %s, %s, %s)
-                """,
-                (test_user["id"], f"Ingredient {i}", 100 + i, "g")
-            )
-        db_connection.commit()
-        cur.close()
+            ing_id = str(uuid.uuid4())
+            mock_db["ingredients"][ing_id] = {
+                "id": ing_id,
+                "user_id": test_user["id"],
+                "name": f"Ingredient {i}",
+                "calories_per_unit": 100 + i,
+                "unit": "g"
+            }
 
         # Test with limit
         event = mock_event_factory(
@@ -284,26 +284,24 @@ class TestDeleteIngredient:
     """Integration tests for DELETE /ingredients/{id}."""
 
     def test_delete_ingredient_success(
-        self, mock_db_connection, mock_event_factory, test_user, db_connection
+        self, mock_db_connection, mock_event_factory, test_user
     ):
-        # Create an ingredient to delete
-        cur = db_connection.cursor()
-        cur.execute(
-            """
-            INSERT INTO ingredients (user_id, name, calories_per_unit, unit)
-            VALUES (%s, %s, %s, %s)
-            RETURNING id
-            """,
-            (test_user["id"], "To Delete", 100, "g")
-        )
-        ingredient_id = cur.fetchone()[0]
-        db_connection.commit()
-        cur.close()
+        conn, mock_db = mock_db_connection
+        # Create an ingredient to delete directly in mock_db
+        import uuid
+        ingredient_id = str(uuid.uuid4())
+        mock_db["ingredients"][ingredient_id] = {
+            "id": ingredient_id,
+            "user_id": test_user["id"],
+            "name": "To Delete",
+            "calories_per_unit": 100,
+            "unit": "g"
+        }
 
         event = mock_event_factory(
             method="DELETE",
             resource="/ingredients/{id}",
-            path_params={"id": str(ingredient_id)},
+            path_params={"id": ingredient_id},
             cognito_user_id=test_user["cognito_user_id"]
         )
 
@@ -312,10 +310,7 @@ class TestDeleteIngredient:
         assert response["statusCode"] == 204
 
         # Verify deletion
-        cur = db_connection.cursor()
-        cur.execute("SELECT id FROM ingredients WHERE id = %s", (ingredient_id,))
-        assert cur.fetchone() is None
-        cur.close()
+        assert ingredient_id not in mock_db["ingredients"]
 
     def test_delete_ingredient_in_use_without_force(
         self, mock_db_connection, mock_event_factory, test_user, test_ingredient, test_meal
