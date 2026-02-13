@@ -3,6 +3,7 @@ import { generatePkcePair, randomString } from './pkce'
 const TOKEN_STORAGE_KEY = 'diet_tracker_tokens'
 const PKCE_VERIFIER_KEY = 'diet_tracker_pkce_verifier'
 const AUTH_STATE_KEY = 'diet_tracker_auth_state'
+const AUTH_EXCHANGE_LOCK_KEY = 'diet_tracker_auth_code_exchanged'
 const AUTH_BYPASS = ['true', '1'].includes(import.meta.env.VITE_AUTH_BYPASS)
 
 function normalizeDomain(domain) {
@@ -172,6 +173,10 @@ export async function handleAuthCallback() {
   const code = params.get('code')
   if (!code) return null
 
+  if (sessionStorage.getItem(AUTH_EXCHANGE_LOCK_KEY) === code) {
+    return null
+  }
+
   const returnedState = params.get('state')
   const expectedState = sessionStorage.getItem(AUTH_STATE_KEY)
   if (!expectedState || returnedState !== expectedState) {
@@ -183,6 +188,7 @@ export async function handleAuthCallback() {
     return { error: 'Missing PKCE verifier' }
   }
 
+  sessionStorage.setItem(AUTH_EXCHANGE_LOCK_KEY, code)
   const tokens = await exchangeCodeForToken(code, verifier)
   storeTokens(tokens)
 
@@ -219,6 +225,30 @@ export async function getAccessToken() {
     const refreshed = await refreshTokens(tokens.refresh_token)
     storeTokens(refreshed)
     return refreshed.access_token
+  } catch {
+    clearTokens()
+    return null
+  }
+}
+
+export async function getIdToken() {
+  const tokens = getStoredTokens()
+  if (!tokens?.id_token) return null
+  if (AUTH_BYPASS) return tokens.id_token
+
+  const now = Date.now()
+  if (tokens.expires_at && tokens.expires_at > now + 30000) {
+    return tokens.id_token
+  }
+
+  if (!tokens.refresh_token) {
+    return tokens.id_token
+  }
+
+  try {
+    const refreshed = await refreshTokens(tokens.refresh_token)
+    storeTokens(refreshed)
+    return refreshed.id_token
   } catch {
     clearTokens()
     return null

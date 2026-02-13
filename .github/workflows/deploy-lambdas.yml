@@ -73,5 +73,7 @@ jobs:
           runtime: python3.12
           handler: backend.lambdas.${{ matrix.lambda-name }}.handler.handler
           role: arn:aws:iam::024680432439:role/diet-tracker-execution-role
+          vpc-subnet-ids: ${{ vars.LAMBDA_SUBNET_IDS }}
+          vpc-security-group-ids: ${{ vars.LAMBDA_SECURITY_GROUP_ID }}
           environment: >-
             {"DB_SECRET_ARN":"${{ secrets.DB_SECRET_ARN }}","DB_NAME":"${{ secrets.DB_NAME }}","ALLOWED_ORIGIN":"${{ secrets.ALLOWED_ORIGIN }}"}

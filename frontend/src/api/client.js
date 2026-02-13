@@ -1,4 +1,4 @@
-import { getAccessToken } from '../auth/auth'
+import { getIdToken } from '../auth/auth'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
 
@@ -17,7 +17,7 @@ export async function apiFetch(path, options = {}) {
     throw new Error('Missing VITE_API_BASE_URL')
   }
 
-  const token = await getAccessToken()
+  const token = await getIdToken()
   if (!token) {
     throw new Error('Not authenticated')
   }

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  getAccessToken,
   getAuthConfigErrors,
+  getIdToken,
+  getStoredTokens,
   getUserEmail,
   handleAuthCallback,
   login,
@@ -98,10 +99,25 @@ function App() {
     let cancelled = false
 
     const initAuth = async () => {
+      const applyAuthenticated = () => {
+        if (cancelled) return
+        setAuthStatus('authenticated')
+        setUserEmail(getUserEmail() || '')
+      }
+
+      const existingTokens = getStoredTokens()
+      if (existingTokens?.id_token) {
+        applyAuthenticated()
+      }
+
       try {
         const callback = await handleAuthCallback()
         if (callback?.error && !cancelled) {
           setAuthError(callback.error)
+        }
+        if (callback?.tokens && !cancelled) {
+          applyAuthenticated()
+          return
         }
       } catch (err) {
         if (!cancelled) {
@@ -109,13 +125,26 @@ function App() {
         }
       }
 
-      const token = await getAccessToken()
+      const token = await getIdToken()
       if (cancelled) return
 
       if (token) {
-        setAuthStatus('authenticated')
-        setUserEmail(getUserEmail() || '')
+        applyAuthenticated()
       } else {
+        // Check if there's a pending auth flow (another effect processing the code)
+        const pendingCode = new URLSearchParams(window.location.search).get('code')
+        if (pendingCode) {
+          // Wait for the other effect to complete the token exchange
+          for (let i = 0; i < 20; i++) {
+            await new Promise(resolve => setTimeout(resolve, 100))
+            if (cancelled) return
+            const tokens = getStoredTokens()
+            if (tokens?.id_token) {
+              applyAuthenticated()
+              return
+            }
+          }
+        }
         setAuthStatus('unauthenticated')
       }
     }
