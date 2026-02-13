@@ -7,7 +7,6 @@ on:
       - frontend-deployment
     paths:
       - "frontend/**"
-      - ".github/workflows/deploy-frontend.yml"
 
 jobs:
   deploy-frontend:
