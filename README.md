@@ -10,9 +10,16 @@ This project is designed to be **simple, secure, and free-tier friendly**, while
 
 ```
 +--------+        +-------------------+        +-------------------+
-|  User  | -----> |   React SPA       | -----> |   Cognito User    |
-|        |        | (S3 Static Site)  | <----- |   Pool (Hosted)  |
+|  User  | -----> |   CloudFront      | -----> |   Cognito User    |
+|        |        |   (CDN)           | <----- |   Pool (Hosted)  |
 +--------+        +-------------------+        +-------------------+
+                          |
+                          |  Static assets
+                          v
+                  +-------------------+
+                  |   S3 (Static)     |
+                  |   React SPA       |
+                  +-------------------+
                           |
                           |  Authorization: Bearer JWT
                           v
@@ -49,7 +56,7 @@ This project is designed to be **simple, secure, and free-tier friendly**, while
 ### Frontend
 
 * Vite + React (SPA)
-* Hosted on Amazon S3 (static website hosting)
+* Hosted on Amazon S3 and served via CloudFront
 * Cognito Hosted UI for authentication
 
 ### Backend
@@ -319,7 +326,7 @@ pipenv run pytest
    npm run build
    ```
 3. Upload `frontend/dist/` to the S3 bucket
-4. Enable static website hosting
+4. Serve the bucket through a CloudFront distribution (OAC + private bucket)
 
 ### Backend (via GitHub Actions)
 
