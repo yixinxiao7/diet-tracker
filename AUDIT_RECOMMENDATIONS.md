@@ -22,6 +22,7 @@
 - [ ] **Missing index on meal_logs.meal_id** - Summary joins will scan without this index
 
 ### Infrastructure
+- [ ] **RDS security group allows 0.0.0.0/0 on port 5432** - PostgreSQL is open to the entire internet; restrict to Lambda security group or VPC CIDR only
 - [ ] **Document IAM role permissions** - `diet-tracker-execution-role` permissions are not documented; audit for least privilege
 - [ ] **Restrict deployment to main branch only** - Currently deploys on `main` and `lambda-deployment` branches (deploy-lambdas.yml:4-7)
 
