@@ -4,9 +4,10 @@ on:
   push:
     branches:
       - main
-      - frontend-deployment
+      - deploy-frontend
     paths:
       - "frontend/**"
+      - ".github/workflows/deploy-frontend.yml"
 
 
 jobs:
@@ -32,8 +33,18 @@ jobs:
         working-directory: frontend
         run: npm ci
 
+      - name: Debug VITE env
+        run: env | grep '^VITE_' || true
+
       - name: Build frontend
         working-directory: frontend
+        env:
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+          VITE_COGNITO_DOMAIN: ${{ secrets.VITE_COGNITO_DOMAIN }}
+          VITE_COGNITO_CLIENT_ID: ${{ secrets.VITE_COGNITO_CLIENT_ID }}
+          VITE_COGNITO_REDIRECT_URI: ${{ secrets.VITE_COGNITO_REDIRECT_URI }}
+          VITE_COGNITO_LOGOUT_URI: ${{ secrets.VITE_COGNITO_LOGOUT_URI }}
+          VITE_COGNITO_SCOPES: ${{ secrets.VITE_COGNITO_SCOPES }}
         run: npm run build
 
       - name: Configure AWS credentials (OIDC)
