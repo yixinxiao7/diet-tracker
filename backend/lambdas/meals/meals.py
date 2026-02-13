@@ -27,11 +27,11 @@ def _load_ingredient_calories(cur, user_id, ingredient_ids):
         """
         SELECT id, calories_per_unit
         FROM ingredients
-        WHERE user_id = %s AND id = ANY(%s)
+        WHERE user_id = %s AND id = ANY(%s::uuid[])
         """,
         (user_id, ingredient_ids)
     )
-    return {row[0]: row[1] for row in cur.fetchall()}
+    return {str(row[0]): row[1] for row in cur.fetchall()}
 
 
 def create_meal(event):

@@ -71,6 +71,7 @@ This project is designed to be **simple, secure, and free-tier friendly**, while
 * GitHub for source control
 * GitHub Actions for Lambda deployments
 * AWS IAM (least-privilege roles)
+* Playwright for frontend E2E tests (mock API)
 
 ---
 
@@ -83,6 +84,26 @@ This project is designed to be **simple, secure, and free-tier friendly**, while
 5. React app exchanges code for JWT tokens
 6. JWT is sent with API requests
 7. API Gateway validates JWT via Cognito authorizer
+
+Note: the frontend currently sends the Cognito ID token as the Bearer token for API requests.
+
+---
+
+## 🧪 Local Development & Testing
+
+### Frontend
+
+* API base URL is configured in `frontend/.env.local` via `VITE_API_BASE_URL`.
+* A mock API server lives at `frontend/mock-api/server.js`.
+* `npm run mock-api` starts the mock server.
+* `npm run test:e2e` starts the dev server + mock API and runs Playwright tests in `frontend/e2e`.
+* `VITE_AUTH_BYPASS=1` bypasses Cognito for tests (injects test tokens in the frontend).
+
+### CI/CD notes
+
+* Lambda deploys use `aws-actions/aws-lambda-deploy@v1`.
+* VPC configuration is provided via GitHub Actions secrets:
+  `LAMBDA_SUBNET_IDS` and `LAMBDA_SECURITY_GROUP_ID`.
 
 ---
 

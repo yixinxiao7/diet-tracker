@@ -158,9 +158,22 @@ function App() {
 
   useEffect(() => {
     if (authStatus !== 'authenticated') return
-    loadIngredients()
-    loadMeals()
-    loadMealLogs()
+
+    const initUserData = async () => {
+      // Bootstrap user in database (idempotent - creates if not exists)
+      try {
+        await apiPost('/users/bootstrap', {})
+      } catch {
+        // Ignore - user may already exist (409) or other non-critical error
+      }
+
+      // Load user data
+      loadIngredients()
+      loadMeals()
+      loadMealLogs()
+    }
+
+    initUserData()
   }, [authStatus])
 
   const loadIngredients = async () => {

@@ -66,6 +66,7 @@
 - [x] **Create API client module** - Build HTTP client with automatic JWT header attachment
 - [x] **Implement core UI pages** - Build components for ingredients, meals, meal logging, and daily summary views
 - [x] **Add loading and error states** - Implement proper UX for async operations
+- [x] **Add frontend E2E tests with mock API** - Playwright tests run against a local mock server
 
 ---
 
@@ -75,6 +76,7 @@
 - [ ] **No integration tests** - All tests use mocked database; need tests against real PostgreSQL
 - [ ] **No authorization tests** - No tests verify users cannot access other users' data
 - [ ] **No API Gateway integration tests** - Test full request/response cycle through API Gateway
+- [ ] **Frontend E2E tests are mocked** - Playwright tests use a mock API; add a full-stack E2E test
 
 ### Missing Edge Case Tests (~50+ tests needed)
 - [ ] Null/missing `pathParameters` handling
