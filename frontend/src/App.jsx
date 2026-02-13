@@ -10,7 +10,7 @@ import {
 } from './auth/auth'
 import { apiDelete, apiGet, apiPost, apiPut } from './api/client'
 import './App.css'
-
+ 
 const TABS = [
   { id: 'ingredients', label: 'Ingredients' },
   { id: 'meals', label: 'Meals' },
