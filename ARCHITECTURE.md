@@ -15,7 +15,7 @@ This repository implements a small, serverless diet-tracking application on AWS.
 - **Backend**: Python 3.12 Lambdas (`meals`, `meal_logs`, `summary`, `users`).
 - **Data**: PostgreSQL on RDS, accessed through `backend/shared/db.py`.
 - **Secrets**: AWS Secrets Manager for DB connection info.
- - **Testing**: Frontend Playwright E2E tests using a local mock API.
+- **Testing**: Frontend Playwright E2E tests using a local mock API.
 
 ## Lambda Responsibilities
 - `meals`: CRUD for meals and ingredients; manages `meal_ingredients` associations.

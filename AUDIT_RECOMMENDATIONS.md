@@ -61,6 +61,7 @@
 - [x] **Add integer type validation for quantity field** - Validate that `quantity` in meal_logs is explicitly an integer before database insertion to prevent type casting issues
 - [x] **Add Secrets Manager error handling in db.py** - Wrap `get_secret_value()` call in try/except with retry logic for transient failures
 - [x] **Handle JSON parsing errors explicitly** - Catch `JSONDecodeError` in Lambda handlers and return 400 Bad Request instead of generic 500 errors
+- [x] **Handle Decimal JSON serialization** - Convert psycopg2 Decimal values to JSON-safe types in `backend/shared/response.py`
 - [x] **Document pagination limits** - Add comments explaining the 100-item cap on list endpoints
 - [x] **Implement Cognito authentication flow** - Add OAuth 2.0 + PKCE integration with Cognito Hosted UI
 - [x] **Create API client module** - Build HTTP client with automatic JWT header attachment
