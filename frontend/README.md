@@ -1,16 +1,41 @@
-# React + Vite
+# Diet Tracker Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This is the Vite + React SPA for the Diet Tracker. It integrates with Amazon Cognito Hosted UI (OAuth 2.0 + PKCE) and calls the backend API with JWTs.
 
-Currently, two official plugins are available:
+## Environment Variables
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+Create a `.env.local` in `frontend/` with:
 
-## React Compiler
+```
+VITE_API_BASE_URL=https://your-api-gateway-domain
+VITE_COGNITO_DOMAIN=your-domain.auth.us-east-1.amazoncognito.com
+VITE_COGNITO_CLIENT_ID=your_cognito_app_client_id
+VITE_COGNITO_REDIRECT_URI=http://localhost:5173
+VITE_COGNITO_LOGOUT_URI=http://localhost:5173
+VITE_COGNITO_SCOPES=openid email profile
+```
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Notes:
+- `VITE_COGNITO_DOMAIN` can be the full URL or just the domain; `https://` is added automatically if missing.
+- Redirect/logout URIs must be registered on the Cognito App Client.
 
-## Expanding the ESLint configuration
+## Development
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```
+cd frontend
+npm install
+npm run dev
+```
+
+## Build
+
+```
+npm run build
+```
+
+## Features
+
+- Cognito Hosted UI login with PKCE
+- JWT-aware API client
+- Ingredients, meals, meal logs, and summary pages
+- Loading and error states for async operations

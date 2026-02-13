@@ -5,8 +5,11 @@ from backend.lambdas.users.users import (
 )
 
 def handler(event, context):
-    method = event["httpMethod"]
-    resource = event["resource"]
+    method = event.get("httpMethod")
+    resource = event.get("resource")
+
+    if not method or not resource:
+        return response(400, {"error": "Invalid request"})
 
     if resource == "/users/bootstrap" and method == "POST":
         return bootstrap_user(event)

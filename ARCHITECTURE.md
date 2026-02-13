@@ -15,6 +15,7 @@ This repository implements a small, serverless diet-tracking application on AWS.
 - **Backend**: Python 3.12 Lambdas (`meals`, `meal_logs`, `summary`, `users`).
 - **Data**: PostgreSQL on RDS, accessed through `backend/shared/db.py`.
 - **Secrets**: AWS Secrets Manager for DB connection info.
+- **Testing**: Frontend Playwright E2E tests using a local mock API.
 
 ## Lambda Responsibilities
 - `meals`: CRUD for meals and ingredients; manages `meal_ingredients` associations.
@@ -26,10 +27,16 @@ This repository implements a small, serverless diet-tracking application on AWS.
 ```
 backend/
   lambdas/        # Domain-specific Lambda handlers
-  shared/         # Auth helpers, DB connection, response helpers
+  shared/         # Auth, DB, response, validation, logging helpers
+  tests/          # Pytest suite for backend
 infra/sql/        # Database schema
-frontend/         # React SPA source (planned)
+frontend/         # Vite + React SPA source
 ```
 
 ## Deployment Notes
-Lambdas are deployed via GitHub Actions using OIDC-based AWS credentials. Environment variables `DB_SECRET_ARN` and `DB_NAME` must be configured for each Lambda.
+Lambdas are deployed via GitHub Actions using OIDC-based AWS credentials. Environment variables `DB_SECRET_ARN`, `DB_NAME`, and `ALLOWED_ORIGIN` must be configured for each Lambda. `LOG_LEVEL` is optional for runtime logging.
+The deployment workflow also supports VPC configuration via secrets `LAMBDA_SUBNET_IDS` and `LAMBDA_SECURITY_GROUP_ID`.
+
+## Local Development Notes
+- The frontend can run against a mock API server in `frontend/mock-api/server.js`.
+- `VITE_AUTH_BYPASS=1` bypasses Cognito for local E2E tests and injects test tokens.

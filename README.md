@@ -71,6 +71,7 @@ This project is designed to be **simple, secure, and free-tier friendly**, while
 * GitHub for source control
 * GitHub Actions for Lambda deployments
 * AWS IAM (least-privilege roles)
+* Playwright for frontend E2E tests (mock API)
 
 ---
 
@@ -83,6 +84,26 @@ This project is designed to be **simple, secure, and free-tier friendly**, while
 5. React app exchanges code for JWT tokens
 6. JWT is sent with API requests
 7. API Gateway validates JWT via Cognito authorizer
+
+Note: the frontend currently sends the Cognito ID token as the Bearer token for API requests.
+
+---
+
+## 🧪 Local Development & Testing
+
+### Frontend
+
+* API base URL is configured in `frontend/.env.local` via `VITE_API_BASE_URL`.
+* A mock API server lives at `frontend/mock-api/server.js`.
+* `npm run mock-api` starts the mock server.
+* `npm run test:e2e` starts the dev server + mock API and runs Playwright tests in `frontend/e2e`.
+* `VITE_AUTH_BYPASS=1` bypasses Cognito for tests (injects test tokens in the frontend).
+
+### CI/CD notes
+
+* Lambda deploys use `aws-actions/aws-lambda-deploy@v1`.
+* VPC configuration is provided via GitHub Actions secrets:
+  `LAMBDA_SUBNET_IDS` and `LAMBDA_SECURITY_GROUP_ID`.
 
 ---
 
@@ -159,6 +180,8 @@ Below is the **complete set of API endpoints** required to support the applicati
 | PUT    | `/meals/{id}` | Update a meal                  |
 | DELETE | `/meals/{id}` | Delete a meal                  |
 
+List endpoints support optional pagination query params: `limit` and `offset`.
+
 ---
 
 ### 🗓️ Meal Logs
@@ -170,6 +193,8 @@ Below is the **complete set of API endpoints** required to support the applicati
 | POST   | `/meal-logs`      | Log a meal for a specific date         |
 | GET    | `/meal-logs`      | List logged meals (filterable by date) |
 | DELETE | `/meal-logs/{id}` | Delete a logged meal                   |
+
+`/meal-logs` supports optional `from` and `to` date filters plus `limit` and `offset`.
 
 ---
 
@@ -235,8 +260,11 @@ diet-tracker/
 │   ├── shared/
 │   │   ├── db.py          # DB connection logic
 │   │   ├── auth.py        # Cognito claim helpers
-│   │   └── response.py    # JSON + CORS responses
+│   │   ├── response.py    # JSON + CORS responses
+│   │   ├── validation.py  # UUID/date validation helpers
+│   │   └── logging.py     # Structured logger helper
 │   │
+│   ├── tests/             # Pytest suite
 │   ├── Pipfile
 │   └── Pipfile.lock
 │
@@ -295,9 +323,9 @@ pipenv run pytest
 
 ### Backend (via GitHub Actions)
 
-* Push to `main` branch triggers deployment
+* Push to `main` or `lambda-deployment` branch triggers deployment
 * Lambda functions packaged and deployed
-* Environment variables injected at deploy time
+* Environment variables injected at deploy time: `DB_SECRET_ARN`, `DB_NAME`, `ALLOWED_ORIGIN` (optional `LOG_LEVEL`)
 
 ---
 

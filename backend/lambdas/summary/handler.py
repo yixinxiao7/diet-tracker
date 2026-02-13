@@ -9,9 +9,12 @@ from backend.lambdas.summary.summary import (
 
 
 def handler(event, context):
-    resource = event["resource"]
-    method = event["httpMethod"]
+    resource = event.get("resource")
+    method = event.get("httpMethod")
     params = event.get("queryStringParameters") or {}
+
+    if not method or not resource:
+        return response(400, {"error": "Invalid request"})
 
     if resource == "/daily-summary" and method == "GET":
         if "date" in params:

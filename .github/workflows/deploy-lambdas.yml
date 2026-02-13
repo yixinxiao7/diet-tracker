@@ -62,7 +62,7 @@ jobs:
           touch $BUILD_DIR/backend/lambdas/${{ matrix.lambda-name }}/__init__.py
 
           # Install dependencies from Pipfile
-          pipenv requirements > requirements.txt
+          PIPENV_PIPFILE=backend/Pipfile pipenv requirements > requirements.txt
           pip install -r requirements.txt --target $BUILD_DIR
 
       - name: Deploy Lambda (${{ matrix.lambda-name }})
@@ -72,7 +72,7 @@ jobs:
           code-artifacts-dir: build/${{ matrix.lambda-name }}
           runtime: python3.12
           handler: backend.lambdas.${{ matrix.lambda-name }}.handler.handler
-          environment: |
-            DB_SECRET_ARN=${{ secrets.DB_SECRET_ARN }}
-            DB_NAME=${{ secrets.DB_NAME }}
-            ALLOWED_ORIGIN=${{ secrets.ALLOWED_ORIGIN }}
+          role: arn:aws:iam::024680432439:role/diet-tracker-execution-role
+          timeout: 30
+          environment: >-
+            {"DB_SECRET_ARN":"${{ secrets.DB_SECRET_ARN }}","DB_NAME":"${{ secrets.DB_NAME }}","ALLOWED_ORIGIN":"${{ secrets.ALLOWED_ORIGIN }}"}

@@ -3,7 +3,13 @@ from backend.shared.auth import get_user_id
 from backend.shared.db import get_connection, get_internal_user_id
 from backend.shared.logging import get_logger
 from backend.shared.response import response
-from backend.shared.validation import is_valid_uuid
+from backend.shared.validation import (
+    is_valid_uuid,
+    get_path_param,
+    validate_string_length,
+    validate_quantity,
+    MAX_NAME_LENGTH,
+)
 
 logger = get_logger(__name__)
 
@@ -21,24 +27,30 @@ def _load_ingredient_calories(cur, user_id, ingredient_ids):
         """
         SELECT id, calories_per_unit
         FROM ingredients
-        WHERE user_id = %s AND id = ANY(%s)
+        WHERE user_id = %s AND id = ANY(%s::uuid[])
         """,
         (user_id, ingredient_ids)
     )
-    return {row[0]: row[1] for row in cur.fetchall()}
+    return {str(row[0]): row[1] for row in cur.fetchall()}
 
 
 def create_meal(event):
     cognito_user_id = get_user_id(event)
-    body = json.loads(event.get("body") or "{}")
+    try:
+        body = json.loads(event.get("body") or "{}")
+    except json.JSONDecodeError:
+        return response(400, {"error": "Invalid JSON body"})
 
     name = body.get("name")
     ingredients = body.get("ingredients") or []
 
-    if not name or not ingredients:
-        return response(400, {
-            "error": "Missing required fields: name, ingredients"
-        })
+    # Validate name
+    name_error = validate_string_length(name, MAX_NAME_LENGTH, "name")
+    if name_error:
+        return response(400, {"error": name_error})
+
+    if not ingredients:
+        return response(400, {"error": "At least one ingredient is required"})
 
     conn = get_connection()
     user_id, error_response = _get_user_id_or_404(conn, cognito_user_id)
@@ -50,6 +62,11 @@ def create_meal(event):
         conn.close()
         return response(400, {"error": "Each ingredient requires ingredient_id"})
 
+    # Check for duplicate ingredient IDs
+    if len(ingredient_ids) != len(set(ingredient_ids)):
+        conn.close()
+        return response(400, {"error": "Duplicate ingredient IDs are not allowed"})
+
     cur = conn.cursor()
     try:
         calories_map = _load_ingredient_calories(cur, user_id, ingredient_ids)
@@ -59,8 +76,9 @@ def create_meal(event):
         total_calories = 0
         for item in ingredients:
             quantity = item.get("quantity")
-            if quantity is None or quantity <= 0:
-                return response(400, {"error": "Each ingredient requires quantity > 0"})
+            quantity_error = validate_quantity(quantity, "ingredient quantity")
+            if quantity_error:
+                return response(400, {"error": quantity_error})
             total_calories += calories_map[item["ingredient_id"]] * quantity
 
         cur.execute("BEGIN")
@@ -101,6 +119,7 @@ def list_meals(event):
     cognito_user_id = get_user_id(event)
     params = event.get("queryStringParameters") or {}
     try:
+        # Default 50, max 100 items
         limit = min(int(params.get("limit", 50)), 100)
         offset = int(params.get("offset", 0))
     except (TypeError, ValueError):
@@ -114,34 +133,35 @@ def list_meals(event):
         return error_response
 
     cur = conn.cursor()
-    cur.execute(
-        """
-        SELECT id, name, total_calories, created_at
-        FROM meals
-        WHERE user_id = %s
-        ORDER BY created_at DESC
-        LIMIT %s OFFSET %s
-        """,
-        (user_id, limit, offset)
-    )
-    meals = [
-        {
-            "id": row[0],
-            "name": row[1],
-            "total_calories": row[2],
-            "created_at": row[3].isoformat()
-        }
-        for row in cur.fetchall()
-    ]
-
-    cur.close()
-    conn.close()
+    try:
+        cur.execute(
+            """
+            SELECT id, name, total_calories, created_at
+            FROM meals
+            WHERE user_id = %s
+            ORDER BY created_at DESC
+            LIMIT %s OFFSET %s
+            """,
+            (user_id, limit, offset)
+        )
+        meals = [
+            {
+                "id": row[0],
+                "name": row[1],
+                "total_calories": row[2],
+                "created_at": row[3].isoformat()
+            }
+            for row in cur.fetchall()
+        ]
+    finally:
+        cur.close()
+        conn.close()
 
     return response(200, {"meals": meals})
 
 def get_meal(event):
     cognito_user_id = get_user_id(event)
-    meal_id = event["pathParameters"]["id"]
+    meal_id = get_path_param(event, "id")
     if not is_valid_uuid(meal_id):
         return response(400, {"error": "Invalid ID format"})
 
@@ -151,30 +171,31 @@ def get_meal(event):
         return error_response
 
     cur = conn.cursor()
-    cur.execute(
-        """
-        SELECT
-            m.id,
-            m.name,
-            m.total_calories,
-            m.created_at,
-            mi.quantity,
-            i.id,
-            i.name,
-            i.calories_per_unit,
-            i.unit
-        FROM meals m
-        LEFT JOIN meal_ingredients mi ON mi.meal_id = m.id
-        LEFT JOIN ingredients i ON i.id = mi.ingredient_id
-        WHERE m.id = %s AND m.user_id = %s
-        ORDER BY i.name
-        """,
-        (meal_id, user_id)
-    )
-    rows = cur.fetchall()
-
-    cur.close()
-    conn.close()
+    try:
+        cur.execute(
+            """
+            SELECT
+                m.id,
+                m.name,
+                m.total_calories,
+                m.created_at,
+                mi.quantity,
+                i.id,
+                i.name,
+                i.calories_per_unit,
+                i.unit
+            FROM meals m
+            LEFT JOIN meal_ingredients mi ON mi.meal_id = m.id
+            LEFT JOIN ingredients i ON i.id = mi.ingredient_id
+            WHERE m.id = %s AND m.user_id = %s
+            ORDER BY i.name
+            """,
+            (meal_id, user_id)
+        )
+        rows = cur.fetchall()
+    finally:
+        cur.close()
+        conn.close()
 
     if not rows:
         return response(404, {"error": "Meal not found"})
@@ -202,19 +223,25 @@ def get_meal(event):
 
 def update_meal(event):
     cognito_user_id = get_user_id(event)
-    meal_id = event["pathParameters"]["id"]
+    meal_id = get_path_param(event, "id")
     if not is_valid_uuid(meal_id):
         return response(400, {"error": "Invalid ID format"})
 
-    body = json.loads(event.get("body") or "{}")
+    try:
+        body = json.loads(event.get("body") or "{}")
+    except json.JSONDecodeError:
+        return response(400, {"error": "Invalid JSON body"})
 
     name = body.get("name")
     ingredients = body.get("ingredients") or []
 
-    if not name or not ingredients:
-        return response(400, {
-            "error": "Missing required fields: name, ingredients"
-        })
+    # Validate name
+    name_error = validate_string_length(name, MAX_NAME_LENGTH, "name")
+    if name_error:
+        return response(400, {"error": name_error})
+
+    if not ingredients:
+        return response(400, {"error": "At least one ingredient is required"})
 
     conn = get_connection()
     user_id, error_response = _get_user_id_or_404(conn, cognito_user_id)
@@ -226,6 +253,11 @@ def update_meal(event):
         conn.close()
         return response(400, {"error": "Each ingredient requires ingredient_id"})
 
+    # Check for duplicate ingredient IDs
+    if len(ingredient_ids) != len(set(ingredient_ids)):
+        conn.close()
+        return response(400, {"error": "Duplicate ingredient IDs are not allowed"})
+
     cur = conn.cursor()
     try:
         calories_map = _load_ingredient_calories(cur, user_id, ingredient_ids)
@@ -235,8 +267,9 @@ def update_meal(event):
         total_calories = 0
         for item in ingredients:
             quantity = item.get("quantity")
-            if quantity is None or quantity <= 0:
-                return response(400, {"error": "Each ingredient requires quantity > 0"})
+            quantity_error = validate_quantity(quantity, "ingredient quantity")
+            if quantity_error:
+                return response(400, {"error": quantity_error})
             total_calories += calories_map[item["ingredient_id"]] * quantity
 
         cur.execute("BEGIN")
@@ -282,7 +315,7 @@ def update_meal(event):
 
 def delete_meal(event):
     cognito_user_id = get_user_id(event)
-    meal_id = event["pathParameters"]["id"]
+    meal_id = get_path_param(event, "id")
     if not is_valid_uuid(meal_id):
         return response(400, {"error": "Invalid ID format"})
 
@@ -292,15 +325,16 @@ def delete_meal(event):
         return error_response
 
     cur = conn.cursor()
-    cur.execute(
-        "DELETE FROM meals WHERE id = %s AND user_id = %s",
-        (meal_id, user_id)
-    )
-    deleted = cur.rowcount
-    conn.commit()
-
-    cur.close()
-    conn.close()
+    try:
+        cur.execute(
+            "DELETE FROM meals WHERE id = %s AND user_id = %s",
+            (meal_id, user_id)
+        )
+        deleted = cur.rowcount
+        conn.commit()
+    finally:
+        cur.close()
+        conn.close()
 
     if deleted == 0:
         return response(404, {"error": "Meal not found"})
