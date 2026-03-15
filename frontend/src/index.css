@@ -18,6 +18,9 @@
   --accent-soft: #e3f2ee;
   --warning: #f4b968;
   --error: #d66a5c;
+  --success: #3a9a6e;
+  --success-soft: #e6f5ed;
+  --success-text: #1e6b45;
   --shadow: 0 20px 60px rgba(25, 34, 30, 0.1);
   --radius: 20px;
 
@@ -29,6 +32,8 @@
   --warning-text: #7a4a10;
   --error-bg: #ffe9e6;
   --error-text: #7a2b22;
+  --cal-color: #1a7a6b;
+  --date-color: #6b7f74;
 }
 
 * {

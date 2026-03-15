@@ -24,7 +24,8 @@
   text-transform: uppercase;
   letter-spacing: 0.2em;
   font-size: 0.75rem;
-  color: var(--muted);
+  color: var(--accent);
+  font-weight: 600;
   margin: 0 0 12px;
 }
 
@@ -54,6 +55,10 @@
 .meta-value {
   margin: 0;
   font-weight: 600;
+}
+
+.auth-card .meta-value:not(.muted) {
+  color: var(--accent-strong);
 }
 
 .tabs {
@@ -98,6 +103,20 @@
   margin: 0;
   font-family: 'Fraunces', 'Times New Roman', serif;
   font-size: clamp(1.4rem, 3vw, 1.8rem);
+  color: var(--ink);
+}
+
+.section-header h2::before {
+  content: '';
+  display: inline-block;
+  width: 4px;
+  height: 0.8em;
+  background: var(--accent);
+  border-radius: 2px;
+  margin-right: 10px;
+  vertical-align: baseline;
+  position: relative;
+  top: 0.05em;
 }
 
 .section-header p {
@@ -111,6 +130,7 @@
   padding: clamp(16px, 3vw, 20px) clamp(16px, 3vw, 24px);
   box-shadow: var(--shadow);
   animation: fadeUp 0.5s ease both;
+  border-left: 3px solid var(--accent-soft);
 }
 
 .form {
@@ -203,6 +223,11 @@ select:focus-visible {
   justify-content: space-between;
 }
 
+.list-header h3,
+.card > h3 {
+  color: var(--accent-strong);
+}
+
 .list-row {
   display: flex;
   justify-content: space-between;
@@ -229,8 +254,16 @@ select:focus-visible {
 
 .list-row span {
   display: block;
-  color: var(--muted);
   font-size: 0.9rem;
+}
+
+.list-row .cal-value {
+  color: var(--cal-color);
+  font-weight: 500;
+}
+
+.list-row .meta-text {
+  color: var(--date-color);
 }
 
 .row-actions {
@@ -262,6 +295,12 @@ select:focus-visible {
   white-space: nowrap;
 }
 
+.mini-list li span:last-child {
+  color: var(--cal-color);
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
 .grid {
   display: grid;
   gap: 20px;
@@ -280,10 +319,16 @@ select:focus-visible {
   margin-top: 12px;
   padding: 14px 16px;
   border-radius: 14px;
-  background: var(--accent-soft);
+  background: linear-gradient(135deg, var(--accent-soft) 0%, #daf0e8 100%);
+  border: 1px solid rgba(31, 122, 107, 0.12);
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.summary-card strong {
+  color: var(--accent-strong);
+  font-size: 1.1rem;
 }
 
 .alert {
@@ -317,6 +362,12 @@ select:focus-visible {
   padding: 4px 10px;
   border-radius: 999px;
   font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.pill.cal-pill {
+  background: linear-gradient(135deg, var(--accent-soft) 0%, #d6ede5 100%);
+  color: var(--accent-strong);
 }
 
 .empty-state {

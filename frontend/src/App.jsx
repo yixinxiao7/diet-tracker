@@ -564,7 +564,7 @@ function App() {
                   <li key={item.id} className="list-row">
                     <div>
                       <strong>{item.name}</strong>
-                      <span>{item.calories_per_unit} cal / {item.unit}</span>
+                      <span className="cal-value">{item.calories_per_unit} cal / {item.unit}</span>
                     </div>
                     <button
                       className="button ghost"
@@ -678,7 +678,7 @@ function App() {
                     <li key={meal.id} className="list-row">
                       <div>
                         <strong>{meal.name}</strong>
-                        <span>{meal.total_calories} cal</span>
+                        <span className="cal-value">{meal.total_calories} cal</span>
                       </div>
                       <div className="row-actions">
                         <button
@@ -808,7 +808,7 @@ function App() {
                   <li key={log.id} className="list-row">
                     <div>
                       <strong>{log.meal_name}</strong>
-                      <span>{log.date} • {log.quantity}x</span>
+                      <span className="meta-text">{log.date} • {log.quantity}x</span>
                     </div>
                     <button
                       className="button ghost"
