@@ -93,7 +93,13 @@ function App() {
   const [rangeLoading, setRangeLoading] = useState(false)
   const [rangeError, setRangeError] = useState('')
 
+  const [submitting, setSubmitting] = useState('')
+
   const configErrors = useMemo(() => getAuthConfigErrors(), [])
+  const ingredientMap = useMemo(
+    () => new Map(ingredients.map((i) => [i.id, i])),
+    [ingredients],
+  )
 
   useEffect(() => {
     let cancelled = false
@@ -217,11 +223,13 @@ function App() {
 
   const handleCreateIngredient = async (event) => {
     event.preventDefault()
+    if (submitting) return
     setIngredientsError('')
     if (isDuplicateIngredientName(ingredientForm.name, ingredients)) {
       setIngredientsError('Ingredient name already exists')
       return
     }
+    setSubmitting('create-ingredient')
     try {
       await apiPost('/ingredients', {
         name: ingredientForm.name.trim(),
@@ -232,21 +240,23 @@ function App() {
       loadIngredients()
     } catch (err) {
       setIngredientsError(err.message || 'Failed to create ingredient')
+    } finally {
+      setSubmitting('')
     }
   }
 
   const handleDeleteIngredient = async (id) => {
     setIngredientsError('')
+    const prev = ingredients
+    setIngredients((current) => current.filter((item) => item.id !== id))
+    setMealDraft((current) => ({
+      ...current,
+      items: current.items.filter((item) => item.ingredient_id !== id),
+    }))
     try {
       await apiDelete(`/ingredients/${id}`)
-      loadIngredients()
-      if (mealDraft.items.some((item) => item.ingredient_id === id)) {
-        setMealDraft((current) => ({
-          ...current,
-          items: current.items.filter((item) => item.ingredient_id !== id),
-        }))
-      }
     } catch (err) {
+      setIngredients(prev)
       setIngredientsError(err.message || 'Failed to delete ingredient')
     }
   }
@@ -275,11 +285,13 @@ function App() {
 
   const handleCreateMeal = async (event) => {
     event.preventDefault()
+    if (submitting) return
     setMealsError('')
     if (isDuplicateMealName(mealDraft.name, meals)) {
       setMealsError('Meal name already exists')
       return
     }
+    setSubmitting('create-meal')
     try {
       await apiPost('/meals', {
         name: mealDraft.name.trim(),
@@ -289,6 +301,8 @@ function App() {
       loadMeals()
     } catch (err) {
       setMealsError(err.message || 'Failed to create meal')
+    } finally {
+      setSubmitting('')
     }
   }
 
@@ -334,20 +348,30 @@ function App() {
 
   const handleDeleteMeal = async (mealId) => {
     setMealsError('')
-    try {
-      await apiDelete(`/meals/${mealId}`)
+    const prevMeals = meals
+    const prevSelectedId = selectedMealId
+    const prevSelectedMeal = selectedMeal
+    setMeals((current) => current.filter((m) => m.id !== mealId))
+    if (selectedMealId === mealId) {
       setSelectedMealId('')
       setSelectedMeal(null)
-      loadMeals()
+    }
+    try {
+      await apiDelete(`/meals/${mealId}`)
       loadMealLogs()
     } catch (err) {
+      setMeals(prevMeals)
+      setSelectedMealId(prevSelectedId)
+      setSelectedMeal(prevSelectedMeal)
       setMealsError(err.message || 'Failed to delete meal')
     }
   }
 
   const handleCreateLog = async (event) => {
     event.preventDefault()
+    if (submitting) return
     setLogsError('')
+    setSubmitting('create-log')
     try {
       await apiPost('/meal-logs', {
         meal_id: logForm.mealId,
@@ -357,15 +381,19 @@ function App() {
       loadMealLogs()
     } catch (err) {
       setLogsError(err.message || 'Failed to log meal')
+    } finally {
+      setSubmitting('')
     }
   }
 
   const handleDeleteLog = async (logId) => {
     setLogsError('')
+    const prev = mealLogs
+    setMealLogs((current) => current.filter((log) => log.id !== logId))
     try {
       await apiDelete(`/meal-logs/${logId}`)
-      loadMealLogs()
     } catch (err) {
+      setMealLogs(prev)
       setLogsError(err.message || 'Failed to delete log')
     }
   }
@@ -410,11 +438,10 @@ function App() {
         </div>
         <div className="auth-card">
           <div>
-            <p className="meta-label">Authentication</p>
             {authStatus === 'authenticated' ? (
               <p className="meta-value">{userEmail || 'Signed in'}</p>
             ) : (
-              <p className="meta-value">Not connected</p>
+              <p className="meta-value muted">Not signed in</p>
             )}
           </div>
           {authStatus === 'checking' && (
@@ -424,7 +451,7 @@ function App() {
           )}
           {authStatus === 'unauthenticated' && (
             <button className="button primary" onClick={login}>
-              Connect Cognito
+              Sign in
             </button>
           )}
           {authStatus === 'authenticated' && (
@@ -436,16 +463,20 @@ function App() {
       </header>
 
       {configErrors.length > 0 && (
-        <div className="alert warning">
+        <div className="alert warning" role="alert">
           Missing environment variables: {configErrors.join(', ')}
         </div>
       )}
-      {authError && <div className="alert error">{authError}</div>}
+      {authError && <div className="alert error" role="alert">{authError}</div>}
 
-      <nav className="tabs">
+      <nav className="tabs" role="tablist" aria-label="Main sections">
         {TABS.map((tab) => (
           <button
             key={tab.id}
+            role="tab"
+            aria-selected={activeTab === tab.id}
+            aria-controls={`panel-${tab.id}`}
+            id={`tab-${tab.id}`}
             className={`tab ${activeTab === tab.id ? 'active' : ''}`}
             onClick={() => setActiveTab(tab.id)}
             type="button"
@@ -458,24 +489,24 @@ function App() {
       <main className="panel">
         {authStatus !== 'authenticated' && (
           <div className="empty-state">
-            <h2>Connect to start tracking</h2>
-            <p>
-              Sign in with Cognito to access your ingredients, meals, and logs.
+            <h2>Track what you eat, effortlessly</h2>
+            <p className="muted">
+              Add ingredients with calorie info, combine them into meals, then log what you eat each day to see your totals.
             </p>
             <button className="button primary" onClick={login}>
-              Sign in
+              Sign in to get started
             </button>
           </div>
         )}
 
         {authStatus === 'authenticated' && activeTab === 'ingredients' && (
-          <section className="section">
+          <section className="section" role="tabpanel" id="panel-ingredients" aria-labelledby="tab-ingredients">
             <div className="section-header">
               <h2>Ingredients</h2>
               <p>Build your pantry with calorie data per unit.</p>
             </div>
 
-            <form className="card form" onSubmit={handleCreateIngredient}>
+            <form className="form" onSubmit={handleCreateIngredient}>
               <div className="field">
                 <label htmlFor="ingredient-name">Name</label>
                 <input
@@ -514,21 +545,21 @@ function App() {
                   required
                 />
               </div>
-              <button className="button primary" type="submit">
-                Add ingredient
+              <button className="button primary" type="submit" disabled={submitting === 'create-ingredient'}>
+                {submitting === 'create-ingredient' ? 'Adding...' : 'Add ingredient'}
               </button>
-              {ingredientsError && <p className="form-error">{ingredientsError}</p>}
+              {ingredientsError && <p className="form-error" role="alert">{ingredientsError}</p>}
             </form>
 
             <div className="card list">
               <div className="list-header">
                 <h3>Saved ingredients</h3>
-                {ingredientsLoading && <span className="pill">Loading</span>}
+                {ingredientsLoading && <span className="pill" aria-live="polite">Loading</span>}
               </div>
               {ingredients.length === 0 && !ingredientsLoading && (
-                <p className="muted">No ingredients yet.</p>
+                <p className="muted">Add your first ingredient above — it will appear here so you can use it in meals.</p>
               )}
-              <ul>
+              <ul role="list">
                 {ingredients.map((item) => (
                   <li key={item.id} className="list-row">
                     <div>
@@ -550,13 +581,13 @@ function App() {
         )}
 
         {authStatus === 'authenticated' && activeTab === 'meals' && (
-          <section className="section">
+          <section className="section" role="tabpanel" id="panel-meals" aria-labelledby="tab-meals">
             <div className="section-header">
               <h2>Meals</h2>
               <p>Combine ingredients into reusable meals.</p>
             </div>
 
-            <form className="card form" onSubmit={handleCreateMeal}>
+            <form className="form" onSubmit={handleCreateMeal}>
               <div className="field">
                 <label htmlFor="meal-name">Meal name</label>
                 <input
@@ -610,7 +641,7 @@ function App() {
 
               <ul className="mini-list">
                 {mealDraft.items.map((item, index) => {
-                  const ingredient = ingredients.find((ing) => ing.id === item.ingredient_id)
+                  const ingredient = ingredientMap.get(item.ingredient_id)
                   return (
                     <li key={`${item.ingredient_id}-${index}`}>
                       <span>{ingredient?.name || 'Ingredient'}</span>
@@ -627,10 +658,10 @@ function App() {
                 })}
               </ul>
 
-              <button className="button primary" type="submit">
-                Save meal
+              <button className="button primary" type="submit" disabled={submitting === 'create-meal'}>
+                {submitting === 'create-meal' ? 'Saving...' : 'Save meal'}
               </button>
-              {mealsError && <p className="form-error">{mealsError}</p>}
+              {mealsError && <p className="form-error" role="alert">{mealsError}</p>}
             </form>
 
             <div className="grid">
@@ -640,9 +671,9 @@ function App() {
                   {mealsLoading && <span className="pill">Loading</span>}
                 </div>
                 {meals.length === 0 && !mealsLoading && (
-                  <p className="muted">No meals yet.</p>
+                  <p className="muted">Create a meal by combining ingredients above. Saved meals appear here for easy logging.</p>
                 )}
-                <ul>
+                <ul role="list">
                   {meals.map((meal) => (
                     <li key={meal.id} className="list-row">
                       <div>
@@ -678,9 +709,9 @@ function App() {
                   <h3>Meal details</h3>
                   {mealDetailLoading && <span className="pill">Loading</span>}
                 </div>
-                {mealDetailError && <p className="form-error">{mealDetailError}</p>}
+                {mealDetailError && <p className="form-error" role="alert">{mealDetailError}</p>}
                 {!selectedMeal && !mealDetailLoading && (
-                  <p className="muted">Select a meal to view details.</p>
+                  <p className="muted">Click "View" on a meal to see its ingredients and edit it.</p>
                 )}
                 {selectedMeal && (
                   <>
@@ -707,13 +738,13 @@ function App() {
         )}
 
         {authStatus === 'authenticated' && activeTab === 'logs' && (
-          <section className="section">
+          <section className="section" role="tabpanel" id="panel-logs" aria-labelledby="tab-logs">
             <div className="section-header">
               <h2>Meal Logs</h2>
               <p>Track what you eat and when.</p>
             </div>
 
-            <form className="card form" onSubmit={handleCreateLog}>
+            <form className="form" onSubmit={handleCreateLog}>
               <div className="field">
                 <label htmlFor="log-meal">Meal</label>
                 <select
@@ -758,21 +789,21 @@ function App() {
                   required
                 />
               </div>
-              <button className="button primary" type="submit">
-                Log meal
+              <button className="button primary" type="submit" disabled={submitting === 'create-log'}>
+                {submitting === 'create-log' ? 'Logging...' : 'Log meal'}
               </button>
-              {logsError && <p className="form-error">{logsError}</p>}
+              {logsError && <p className="form-error" role="alert">{logsError}</p>}
             </form>
 
             <div className="card list">
               <div className="list-header">
                 <h3>Recent logs</h3>
-                {logsLoading && <span className="pill">Loading</span>}
+                {logsLoading && <span className="pill" aria-live="polite">Loading</span>}
               </div>
               {mealLogs.length === 0 && !logsLoading && (
-                <p className="muted">No logs yet.</p>
+                <p className="muted">Log a meal above to start tracking your daily intake. Check the Summary tab to see your totals.</p>
               )}
-              <ul>
+              <ul role="list">
                 {mealLogs.map((log) => (
                   <li key={log.id} className="list-row">
                     <div>
@@ -794,7 +825,7 @@ function App() {
         )}
 
         {authStatus === 'authenticated' && activeTab === 'summary' && (
-          <section className="section">
+          <section className="section" role="tabpanel" id="panel-summary" aria-labelledby="tab-summary">
             <div className="section-header">
               <h2>Summary</h2>
               <p>See your totals for a day or date range.</p>
@@ -817,11 +848,11 @@ function App() {
                   Get summary
                 </button>
                 {dailyLoading && <p className="muted">Loading...</p>}
-                {dailyError && <p className="form-error">{dailyError}</p>}
+                {dailyError && <p className="form-error" role="alert">{dailyError}</p>}
                 {dailySummary && !dailyLoading && (
                   <div className="summary-card">
-                    <p>Total calories</p>
-                    <strong>{dailySummary.total_calories}</strong>
+                    <p>Total</p>
+                    <strong>{dailySummary.total_calories} cal</strong>
                   </div>
                 )}
               </form>
@@ -852,7 +883,7 @@ function App() {
                   Get range
                 </button>
                 {rangeLoading && <p className="muted">Loading...</p>}
-                {rangeError && <p className="form-error">{rangeError}</p>}
+                {rangeError && <p className="form-error" role="alert">{rangeError}</p>}
                 {rangeSummary.length > 0 && !rangeLoading && (
                   <ul className="mini-list">
                     {rangeSummary.map((day) => (

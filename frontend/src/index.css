@@ -2,8 +2,8 @@
   font-family: 'Space Grotesk', 'Segoe UI', system-ui, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  color: #1d2622;
-  background-color: #f5f1ea;
+  color: var(--ink);
+  background-color: var(--surface-alt);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -12,7 +12,7 @@
   --surface: #fdfbf7;
   --surface-alt: #f1ede6;
   --ink: #1d2622;
-  --muted: #5c6b63;
+  --muted: #4a5950;
   --accent: #1f7a6b;
   --accent-strong: #125548;
   --accent-soft: #e3f2ee;
@@ -20,6 +20,15 @@
   --error: #d66a5c;
   --shadow: 0 20px 60px rgba(25, 34, 30, 0.1);
   --radius: 20px;
+
+  --border: #d7d9d4;
+  --input-bg: #fefdfb;
+  --mini-list-bg: #f4f1ec;
+  --divider: #ece8e2;
+  --warning-bg: #fff4e1;
+  --warning-text: #7a4a10;
+  --error-bg: #ffe9e6;
+  --error-text: #7a2b22;
 }
 
 * {
