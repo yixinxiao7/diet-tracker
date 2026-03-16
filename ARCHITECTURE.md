@@ -3,12 +3,40 @@
 This repository implements a small, serverless diet-tracking application on AWS. The goal is a secure, low-traffic system with minimal operational overhead.
 
 ## High-Level Flow
-1. Users access the app at `diet-tracker.yixinx.com` (custom domain via CloudFront + ACM).
-2. Users authenticate through Cognito Hosted UI (Authorization Code + PKCE).
-3. The React SPA is served via CloudFront (S3 origin), stores JWTs, and calls the API.
-4. API Gateway validates JWTs with a Cognito User Pool authorizer.
-5. Lambda functions (running outside the VPC) handle domain logic and read/write to PostgreSQL.
-6. DB credentials are fetched from AWS Secrets Manager.
+
+```mermaid
+flowchart LR
+    User([User])
+
+    subgraph AWS
+        CF[CloudFront<br>diet-tracker.yixinx.com]
+        S3[(S3<br>React SPA)]
+        Cognito[Cognito<br>Hosted UI + PKCE]
+        APIGW[API Gateway<br>JWT Authorizer]
+        SM[Secrets Manager]
+
+        subgraph Lambdas
+            meals[meals]
+            meal_logs[meal_logs]
+            summary[summary]
+            users[users]
+        end
+
+        subgraph VPC
+            RDS[(PostgreSQL<br>RDS)]
+        end
+    end
+
+    User -->|HTTPS| CF
+    CF -->|serve SPA| S3
+    User -->|auth| Cognito
+    Cognito -->|JWT| User
+    User -->|API + JWT| APIGW
+    APIGW -->|validate JWT| Cognito
+    APIGW --> Lambdas
+    Lambdas -->|fetch creds| SM
+    Lambdas -->|public internet| RDS
+```
 
 ## Core Services
 - **Frontend**: React SPA hosted on S3 and served through CloudFront at `diet-tracker.yixinx.com`.
