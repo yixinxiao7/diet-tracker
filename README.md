@@ -9,37 +9,37 @@ This project is designed to be **simple, secure, and free-tier friendly**, while
 ## 🏗️ Architecture Overview
 
 ```
-+--------+        +-------------------+        +-------------------+
-|  User  | -----> |   CloudFront      | -----> |   Cognito User    |
-|        |        |   (CDN)           | <----- |   Pool (Hosted)  |
-+--------+        +-------------------+        +-------------------+
-                          |
-                          |  Static assets
-                          v
-                  +-------------------+
-                  |   S3 (Static)     |
-                  |   React SPA       |
-                  +-------------------+
-                          |
-                          |  Authorization: Bearer JWT
-                          v
-                  +-------------------+
-                  |   API Gateway     |
-                  | (JWT Authorizer)  |
-                  +-------------------+
-                          |
-                          v
-                  +-------------------+
-                  |   AWS Lambda      |
-                  |    (Python)       |
-                  +-------------------+
-                     |           |
-                     |           +-------------------+
-                     v                               v
-             +---------------+            +-----------------------+
-             | Amazon RDS    |            | AWS Secrets Manager   |
-             | PostgreSQL    |            | (DB Credentials)     |
-             +---------------+            +-----------------------+
++--------+     diet-tracker.yixinx.com     +-------------------+
+|  User  | ------------------------------> |   CloudFront      |
+|        |        (custom domain)          |   (CDN + ACM)     |
++--------+                                 +-------------------+
+                                              |           |
+                                   Static assets    Auth redirect
+                                              v           v
+                                   +-------------+  +-------------------+
+                                   | S3 (Static) |  | Cognito User Pool |
+                                   | React SPA   |  |  (Hosted UI)      |
+                                   +-------------+  +-------------------+
+                                              |
+                                              |  Authorization: Bearer JWT
+                                              v
+                                   +-------------------+
+                                   |   API Gateway     |
+                                   | (JWT Authorizer)  |
+                                   +-------------------+
+                                              |
+                                              v
+                                   +-------------------+
+                                   |   AWS Lambda      |
+                                   |  (Python, no VPC) |
+                                   +-------------------+
+                                      |           |
+                                      v           v
+                              +---------------+  +-----------------------+
+                              | Amazon RDS    |  | AWS Secrets Manager   |
+                              | PostgreSQL    |  | (DB Credentials)      |
+                              | (public, VPC) |  +-----------------------+
+                              +---------------+
 ```
 
 ### Key Security Properties
@@ -57,6 +57,7 @@ This project is designed to be **simple, secure, and free-tier friendly**, while
 
 * Vite + React (SPA)
 * Hosted on Amazon S3 and served via CloudFront
+* Custom domain: `diet-tracker.yixinx.com` (via CloudFront alternate domain + ACM certificate)
 * Cognito Hosted UI for authentication
 
 ### Backend
@@ -73,11 +74,18 @@ This project is designed to be **simple, secure, and free-tier friendly**, while
 * JWT-based API authorization
 * Encrypted database storage
 
+### Networking
+
+* Amazon VPC for RDS isolation
+* RDS is publicly accessible (Lambda connects from outside the VPC)
+* Security group controls inbound access to the database
+
 ### Infrastructure & CI/CD
 
 * GitHub for source control
 * GitHub Actions for Lambda deployments
 * AWS IAM (least-privilege roles)
+* ACM certificate for custom domain HTTPS
 * Playwright for frontend E2E tests (mock API)
 
 ---
@@ -109,8 +117,8 @@ Note: the frontend currently sends the Cognito ID token as the Bearer token for 
 ### CI/CD notes
 
 * Lambda deploys use `aws-actions/aws-lambda-deploy@v1`.
-* VPC configuration is provided via GitHub Actions secrets:
-  `LAMBDA_SUBNET_IDS` and `LAMBDA_SECURITY_GROUP_ID`.
+* Lambdas run outside the VPC (no VPC configuration needed).
+* Environment variables `DB_SECRET_ARN`, `DB_NAME`, and `ALLOWED_ORIGIN` are injected via GitHub Actions secrets.
 
 ---
 
@@ -326,13 +334,13 @@ pipenv run pytest
    npm run build
    ```
 3. Upload `frontend/dist/` to the S3 bucket
-4. Serve the bucket through a CloudFront distribution (OAC + private bucket)
+4. Served via CloudFront distribution (OAC + private bucket) at `diet-tracker.yixinx.com`
 
 ### Backend (via GitHub Actions)
 
 * Push to `main` or `lambda-deployment` branch triggers deployment
 * Lambda functions packaged and deployed
-* Environment variables injected at deploy time: `DB_SECRET_ARN`, `DB_NAME`, `ALLOWED_ORIGIN` (optional `LOG_LEVEL`)
+* Environment variables injected at deploy time: `DB_SECRET_ARN`, `DB_NAME`, `ALLOWED_ORIGIN` (should match the custom domain), optional `LOG_LEVEL`
 
 ---
 
