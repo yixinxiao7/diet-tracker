@@ -8,38 +8,38 @@ This project is designed to be **simple, secure, and free-tier friendly**, while
 
 ## 🏗️ Architecture Overview
 
-```
-+--------+     diet-tracker.yixinx.com     +-------------------+
-|  User  | ------------------------------> |   CloudFront      |
-|        |        (custom domain)          |   (CDN + ACM)     |
-+--------+                                 +-------------------+
-                                              |           |
-                                   Static assets    Auth redirect
-                                              v           v
-                                   +-------------+  +-------------------+
-                                   | S3 (Static) |  | Cognito User Pool |
-                                   | React SPA   |  |  (Hosted UI)      |
-                                   +-------------+  +-------------------+
-                                              |
-                                              |  Authorization: Bearer JWT
-                                              v
-                                   +-------------------+
-                                   |   API Gateway     |
-                                   | (JWT Authorizer)  |
-                                   +-------------------+
-                                              |
-                                              v
-                                   +-------------------+
-                                   |   AWS Lambda      |
-                                   |  (Python, no VPC) |
-                                   +-------------------+
-                                      |           |
-                                      v           v
-                              +---------------+  +-----------------------+
-                              | Amazon RDS    |  | AWS Secrets Manager   |
-                              | PostgreSQL    |  | (DB Credentials)      |
-                              | (public, VPC) |  +-----------------------+
-                              +---------------+
+```mermaid
+flowchart LR
+    User([User])
+
+    subgraph AWS
+        CF[CloudFront<br>diet-tracker.yixinx.com]
+        S3[(S3<br>React SPA)]
+        Cognito[Cognito<br>Hosted UI + PKCE]
+        APIGW[API Gateway<br>JWT Authorizer]
+        SM[Secrets Manager]
+
+        subgraph Lambdas
+            meals[meals]
+            meal_logs[meal_logs]
+            summary[summary]
+            users[users]
+        end
+
+        subgraph VPC
+            RDS[(PostgreSQL<br>RDS)]
+        end
+    end
+
+    User -->|HTTPS| CF
+    CF -->|serve SPA| S3
+    User -->|auth| Cognito
+    Cognito -->|JWT| User
+    User -->|API + JWT| APIGW
+    APIGW -->|validate JWT| Cognito
+    APIGW --> Lambdas
+    Lambdas -->|fetch creds| SM
+    Lambdas -->|public internet| RDS
 ```
 
 ### Key Security Properties
