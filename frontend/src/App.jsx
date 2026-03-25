@@ -9,6 +9,7 @@ import {
   logout,
 } from './auth/auth'
 import { apiDelete, apiGet, apiPost, apiPut } from './api/client'
+import IngredientCombobox from './IngredientCombobox'
 import './App.css'
 
 const TABS = [
@@ -633,36 +634,33 @@ function App() {
               <div className="inline-group">
                 <div className="field">
                   <label htmlFor="meal-ingredient">Ingredient</label>
-                  <select
-                    id="meal-ingredient"
+                  <IngredientCombobox
+                    ingredients={ingredients}
                     value={mealItemDraft.ingredientId}
-                    onChange={(event) =>
-                      setMealItemDraft((current) => ({
-                        ...current,
-                        ingredientId: event.target.value,
-                      }))
+                    onChange={(ingredientId) =>
+                      setMealItemDraft((current) => ({ ...current, ingredientId }))
                     }
-                  >
-                    <option value="">Select ingredient</option>
-                    {ingredients.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.name}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
                 <div className="field">
                   <label htmlFor="meal-ingredient-quantity">Quantity</label>
-                  <input
-                    id="meal-ingredient-quantity"
-                    type="number"
-                    min="0"
-                    step="0.1"
-                    value={mealItemDraft.quantity}
-                    onChange={(event) =>
-                      setMealItemDraft((current) => ({ ...current, quantity: event.target.value }))
-                    }
-                  />
+                  <div className="quantity-wrapper">
+                    <input
+                      id="meal-ingredient-quantity"
+                      type="number"
+                      min="0"
+                      step="0.1"
+                      value={mealItemDraft.quantity}
+                      onChange={(event) =>
+                        setMealItemDraft((current) => ({ ...current, quantity: event.target.value }))
+                      }
+                    />
+                    {mealItemDraft.ingredientId && ingredientMap.get(mealItemDraft.ingredientId)?.unit && (
+                      <span className="quantity-unit">
+                        {ingredientMap.get(mealItemDraft.ingredientId).unit}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <button className="button ghost" type="button" onClick={addMealItem}>
                   Add
@@ -675,7 +673,7 @@ function App() {
                   return (
                     <li key={`${item.ingredient_id}-${index}`}>
                       <span>{ingredient?.name || 'Ingredient'}</span>
-                      <span>{item.quantity}</span>
+                      <span>{item.quantity} {ingredient?.unit || ''}</span>
                       <button
                         className="button ghost"
                         type="button"
