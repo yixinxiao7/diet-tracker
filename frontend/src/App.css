@@ -172,6 +172,18 @@ select:focus-visible {
   align-items: end;
 }
 
+.inline-connector {
+  color: var(--muted);
+  font-size: 0.9rem;
+  padding-bottom: 12px;
+  align-self: end;
+}
+
+.serving-preview {
+  font-size: 0.85rem;
+  margin: -8px 0 0;
+}
+
 .button {
   border: none;
   border-radius: 999px;

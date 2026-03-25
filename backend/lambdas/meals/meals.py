@@ -31,7 +31,7 @@ def _load_ingredient_calories(cur, user_id, ingredient_ids):
         """,
         (user_id, ingredient_ids)
     )
-    return {str(row[0]): row[1] for row in cur.fetchall()}
+    return {str(row[0]): float(row[1]) for row in cur.fetchall()}
 
 
 def create_meal(event):
@@ -80,6 +80,8 @@ def create_meal(event):
             if quantity_error:
                 return response(400, {"error": quantity_error})
             total_calories += calories_map[item["ingredient_id"]] * quantity
+
+        total_calories = round(total_calories, 2)
 
         cur.execute("BEGIN")
         cur.execute(
@@ -271,6 +273,8 @@ def update_meal(event):
             if quantity_error:
                 return response(400, {"error": quantity_error})
             total_calories += calories_map[item["ingredient_id"]] * quantity
+
+        total_calories = round(total_calories, 2)
 
         cur.execute("BEGIN")
         cur.execute(

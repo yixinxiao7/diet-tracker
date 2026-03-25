@@ -51,6 +51,24 @@ def test_create_ingredient_success(monkeypatch, event_copy):
     assert body["id"] == "ing-1"
 
 
+def test_create_ingredient_decimal_calories(monkeypatch, event_copy):
+    cursor = FakeCursor(fetchone_values=[("ing-2",)])
+    conn = FakeConnection(cursor)
+
+    monkeypatch.setattr(ingredients_module, "get_connection", lambda: conn)
+    monkeypatch.setattr(ingredients_module, "get_internal_user_id", lambda *_: 1)
+
+    event_copy["body"] = json.dumps({
+        "name": "Broccoli",
+        "calories_per_unit": 0.34,
+        "unit": "g"
+    })
+    resp = ingredients_module.create_ingredient(event_copy)
+    body = json.loads(resp["body"])
+    assert resp["statusCode"] == 201
+    assert body["calories_per_unit"] == 0.34
+
+
 def test_list_ingredients_success(monkeypatch, event_copy):
     cursor = FakeCursor(fetchall_values=[[
         ("ing-1", "Rice", 100, "g"),

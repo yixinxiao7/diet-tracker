@@ -11,7 +11,7 @@ CREATE TABLE ingredients (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID REFERENCES users(id) ON DELETE CASCADE,
   name VARCHAR(255) NOT NULL,
-  calories_per_unit INT NOT NULL CHECK (calories_per_unit >= 0),
+  calories_per_unit NUMERIC NOT NULL CHECK (calories_per_unit >= 0),
   unit VARCHAR(50) NOT NULL
 );
 

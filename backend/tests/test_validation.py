@@ -1,5 +1,5 @@
 import pytest
-from backend.shared.validation import is_valid_date, is_valid_uuid
+from backend.shared.validation import is_valid_date, is_valid_uuid, validate_calories
 
 
 class TestIsValidUuid:
@@ -21,6 +21,25 @@ class TestIsValidUuid:
     ])
     def test_is_valid_uuid(self, value, expected):
         assert is_valid_uuid(value) == expected
+
+
+class TestValidateCalories:
+    @pytest.mark.parametrize("value,expected_error", [
+        (100, None),
+        (0, None),
+        (3.5, None),
+        (0.34, None),
+        (0.1, None),
+        (100000, None),
+        (100000.1, "calories_per_unit cannot exceed 100000"),
+        (-1, "calories_per_unit cannot be negative"),
+        (-0.1, "calories_per_unit cannot be negative"),
+        (None, "calories_per_unit is required"),
+        (True, "calories_per_unit must be a number"),
+        ("100", "calories_per_unit must be a number"),
+    ])
+    def test_validate_calories(self, value, expected_error):
+        assert validate_calories(value) == expected_error
 
 
 class TestIsValidDate:

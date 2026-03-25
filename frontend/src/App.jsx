@@ -60,6 +60,7 @@ function App() {
   const [ingredientForm, setIngredientForm] = useState({
     name: '',
     calories: '',
+    servingSize: '',
     unit: '',
   })
 
@@ -229,14 +230,20 @@ function App() {
       setIngredientsError('Ingredient name already exists')
       return
     }
+    const servingSize = Number(ingredientForm.servingSize) || 1
+    if (servingSize <= 0) {
+      setIngredientsError('Serving size must be greater than 0')
+      return
+    }
+    const caloriesPerUnit = Number(ingredientForm.calories) / servingSize
     setSubmitting('create-ingredient')
     try {
       await apiPost('/ingredients', {
         name: ingredientForm.name.trim(),
-        calories_per_unit: Number(ingredientForm.calories),
+        calories_per_unit: Math.round(caloriesPerUnit * 100) / 100,
         unit: ingredientForm.unit.trim(),
       })
-      setIngredientForm({ name: '', calories: '', unit: '' })
+      setIngredientForm({ name: '', calories: '', servingSize: '', unit: '' })
       loadIngredients()
     } catch (err) {
       setIngredientsError(err.message || 'Failed to create ingredient')
@@ -508,43 +515,66 @@ function App() {
 
             <form className="form" onSubmit={handleCreateIngredient}>
               <div className="field">
-                <label htmlFor="ingredient-name">Name</label>
+                <label htmlFor="ingredient-name">Ingredient name</label>
                 <input
                   id="ingredient-name"
                   value={ingredientForm.name}
                   onChange={(event) =>
                     setIngredientForm((current) => ({ ...current, name: event.target.value }))
                   }
-                  placeholder="Brown rice"
+                  placeholder="e.g. Chicken breast"
                   required
                 />
               </div>
-              <div className="field">
-                <label htmlFor="ingredient-calories">Calories per unit</label>
-                <input
-                  id="ingredient-calories"
-                  type="number"
-                  min="0"
-                  value={ingredientForm.calories}
-                  onChange={(event) =>
-                    setIngredientForm((current) => ({ ...current, calories: event.target.value }))
-                  }
-                  placeholder="120"
-                  required
-                />
+              <div className="inline-group">
+                <div className="field">
+                  <label htmlFor="ingredient-calories">Calories</label>
+                  <input
+                    id="ingredient-calories"
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={ingredientForm.calories}
+                    onChange={(event) =>
+                      setIngredientForm((current) => ({ ...current, calories: event.target.value }))
+                    }
+                    placeholder="165"
+                    required
+                  />
+                </div>
+                <span className="inline-connector">per</span>
+                <div className="field">
+                  <label htmlFor="ingredient-serving-size">Serving size</label>
+                  <input
+                    id="ingredient-serving-size"
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={ingredientForm.servingSize}
+                    onChange={(event) =>
+                      setIngredientForm((current) => ({ ...current, servingSize: event.target.value }))
+                    }
+                    placeholder="1"
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor="ingredient-unit">Unit</label>
+                  <input
+                    id="ingredient-unit"
+                    value={ingredientForm.unit}
+                    onChange={(event) =>
+                      setIngredientForm((current) => ({ ...current, unit: event.target.value }))
+                    }
+                    placeholder="g"
+                    required
+                  />
+                </div>
               </div>
-              <div className="field">
-                <label htmlFor="ingredient-unit">Unit</label>
-                <input
-                  id="ingredient-unit"
-                  value={ingredientForm.unit}
-                  onChange={(event) =>
-                    setIngredientForm((current) => ({ ...current, unit: event.target.value }))
-                  }
-                  placeholder="g, ml, tbsp"
-                  required
-                />
-              </div>
+              {ingredientForm.calories && (Number(ingredientForm.servingSize) || 1) !== 1 && Number(ingredientForm.servingSize) > 0 && (
+                <p className="serving-preview muted">
+                  ≈ {(Number(ingredientForm.calories) / (Number(ingredientForm.servingSize) || 1)).toFixed(2)} cal per {ingredientForm.unit || 'unit'}
+                </p>
+              )}
               <button className="button primary" type="submit" disabled={submitting === 'create-ingredient'}>
                 {submitting === 'create-ingredient' ? 'Adding...' : 'Add ingredient'}
               </button>
@@ -564,7 +594,7 @@ function App() {
                   <li key={item.id} className="list-row">
                     <div>
                       <strong>{item.name}</strong>
-                      <span className="cal-value">{item.calories_per_unit} cal / {item.unit}</span>
+                      <span className="cal-value">{Number.isInteger(Number(item.calories_per_unit)) ? Number(item.calories_per_unit) : Number(item.calories_per_unit).toFixed(2)} cal / {item.unit}</span>
                     </div>
                     <button
                       className="button ghost"

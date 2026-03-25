@@ -6,9 +6,12 @@ export async function goToTab(page, name) {
   await page.getByRole('button', { name }).click()
 }
 
-export async function addIngredient(page, { name, caloriesPerUnit, unit = 'g' }) {
-  await page.getByLabel('Name').fill(name)
-  await page.getByLabel('Calories per unit').fill(String(caloriesPerUnit))
+export async function addIngredient(page, { name, caloriesPerUnit, unit = 'g', servingSize }) {
+  await page.getByLabel('Ingredient name').fill(name)
+  await page.getByLabel('Calories').fill(String(caloriesPerUnit))
+  if (servingSize !== undefined) {
+    await page.getByLabel('Serving size').fill(String(servingSize))
+  }
   await page.getByLabel('Unit', { exact: true }).fill(unit)
   await page.getByRole('button', { name: 'Add ingredient' }).click()
 }
