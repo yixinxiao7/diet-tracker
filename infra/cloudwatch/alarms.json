@@ -1,0 +1,75 @@
+{
+  "alarms": [
+    {
+      "AlarmName": "DietTracker-HighErrorRate",
+      "AlarmDescription": "Alert when Lambda errors exceed 5 in 5 minutes",
+      "MetricName": "Errors",
+      "Namespace": "AWS/Lambda",
+      "Statistic": "Sum",
+      "Period": 300,
+      "EvaluationPeriods": 1,
+      "Threshold": 5,
+      "ComparisonOperator": "GreaterThanThreshold",
+      "AlarmActions": ["arn:aws:sns:us-east-1:024680432439:diet-tracker-alarms"],
+      "TreatMissingData": "notBreaching"
+    },
+    {
+      "AlarmName": "DietTracker-HighLatency",
+      "AlarmDescription": "Alert when custom RequestLatency p99 exceeds 2000ms",
+      "MetricName": "RequestLatency",
+      "Namespace": "DietTracker",
+      "Statistic": "p99",
+      "Period": 300,
+      "EvaluationPeriods": 1,
+      "Threshold": 2000,
+      "ComparisonOperator": "GreaterThanThreshold",
+      "AlarmActions": ["arn:aws:sns:us-east-1:024680432439:diet-tracker-alarms"],
+      "TreatMissingData": "notBreaching"
+    },
+    {
+      "AlarmName": "DietTracker-DatabaseSlowQuery",
+      "AlarmDescription": "Alert when custom DatabaseQueryTime exceeds 20000ms",
+      "MetricName": "DatabaseQueryTime",
+      "Namespace": "DietTracker",
+      "Statistic": "Maximum",
+      "Period": 300,
+      "EvaluationPeriods": 1,
+      "Threshold": 20000,
+      "ComparisonOperator": "GreaterThanThreshold",
+      "AlarmActions": ["arn:aws:sns:us-east-1:024680432439:diet-tracker-alarms"],
+      "TreatMissingData": "notBreaching"
+    },
+    {
+      "AlarmName": "DietTracker-BatchJobFailure",
+      "AlarmDescription": "Alert when daily_summaries_batch Lambda errors exceed 0 in 1 hour",
+      "MetricName": "Errors",
+      "Namespace": "AWS/Lambda",
+      "Statistic": "Sum",
+      "Period": 3600,
+      "EvaluationPeriods": 1,
+      "Threshold": 0,
+      "ComparisonOperator": "GreaterThanThreshold",
+      "Dimensions": [
+        {
+          "Name": "FunctionName",
+          "Value": "daily_summaries_batch"
+        }
+      ],
+      "AlarmActions": ["arn:aws:sns:us-east-1:024680432439:diet-tracker-alarms"],
+      "TreatMissingData": "notBreaching"
+    },
+    {
+      "AlarmName": "DietTracker-RDSHighCPU",
+      "AlarmDescription": "Alert when RDS CPUUtilization exceeds 80% for 10 minutes",
+      "MetricName": "CPUUtilization",
+      "Namespace": "AWS/RDS",
+      "Statistic": "Average",
+      "Period": 300,
+      "EvaluationPeriods": 2,
+      "Threshold": 80,
+      "ComparisonOperator": "GreaterThanThreshold",
+      "AlarmActions": ["arn:aws:sns:us-east-1:024680432439:diet-tracker-alarms"],
+      "TreatMissingData": "notBreaching"
+    }
+  ]
+}

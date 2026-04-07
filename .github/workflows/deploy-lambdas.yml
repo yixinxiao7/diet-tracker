@@ -22,6 +22,7 @@ jobs:
           - meal_logs
           - summary
           - users
+          - daily_summaries_batch
 
     steps:
       - name: Checkout repository

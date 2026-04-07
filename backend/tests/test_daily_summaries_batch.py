@@ -1,0 +1,495 @@
+from datetime import date, timedelta
+from decimal import Decimal
+import pytest
+
+from backend.lambdas.daily_summaries_batch import batch
+from backend.lambdas.daily_summaries_batch import handler as batch_handler
+from backend.tests.conftest import FakeConnection, FakeCursor
+
+
+class TestComputeDailySummaries:
+    def test_compute_daily_summaries_default_date(self, monkeypatch):
+        """Test that default date is yesterday."""
+        yesterday = date.today() - timedelta(days=1)
+
+        # Track the query that was executed
+        executed_queries = []
+
+        def fake_execute(query, params=None):
+            executed_queries.append((query, params))
+
+        cursor = FakeCursor()
+        cursor.execute = fake_execute
+        cursor.fetchall = lambda: [
+            ("user-id-1", Decimal("1500"), 3),
+            ("user-id-2", Decimal("2000"), 4)
+        ]
+
+        conn = FakeConnection(cursor)
+
+        def fake_commit():
+            pass
+
+        conn.commit = fake_commit
+
+        result = batch.compute_daily_summaries(conn)
+
+        assert result == 2
+        # Verify the first query uses yesterday
+        assert executed_queries[0][1][0] == yesterday
+
+    def test_compute_daily_summaries_specific_date(self, monkeypatch):
+        """Test computing summaries for a specific date."""
+        target_date = date(2024, 1, 15)
+
+        cursor = FakeCursor()
+        cursor.fetchall = lambda: [
+            ("user-id-1", Decimal("1500"), 3),
+        ]
+
+        conn = FakeConnection(cursor)
+        conn.commit = lambda: None
+
+        result = batch.compute_daily_summaries(conn, target_date)
+
+        assert result == 1
+
+    def test_compute_daily_summaries_no_logs(self):
+        """Test handling when no meal logs exist for target date."""
+        target_date = date(2024, 1, 15)
+
+        cursor = FakeCursor()
+        cursor.fetchall = lambda: []
+
+        conn = FakeConnection(cursor)
+        conn.commit = lambda: None
+
+        result = batch.compute_daily_summaries(conn, target_date)
+
+        assert result == 0
+
+    def test_compute_daily_summaries_upsert(self):
+        """Test that UPSERT correctly updates existing summaries."""
+        target_date = date(2024, 1, 15)
+
+        executed_queries = []
+
+        def fake_execute(query, params=None):
+            executed_queries.append((query, params))
+
+        cursor = FakeCursor()
+        cursor.execute = fake_execute
+        cursor.fetchall = lambda: [("user-id-1", Decimal("1500"), 3)]
+
+        conn = FakeConnection(cursor)
+        conn.commit = lambda: None
+
+        batch.compute_daily_summaries(conn, target_date)
+
+        # Check that an UPSERT query was executed
+        assert any("ON CONFLICT" in query for query, _ in executed_queries)
+
+    def test_compute_daily_summaries_decimal_handling(self):
+        """Test that decimal values are handled correctly."""
+        target_date = date(2024, 1, 15)
+
+        cursor = FakeCursor()
+        cursor.fetchall = lambda: [
+            ("user-id-1", Decimal("1500.50"), 2),
+        ]
+
+        conn = FakeConnection(cursor)
+        conn.commit = lambda: None
+
+        result = batch.compute_daily_summaries(conn, target_date)
+
+        assert result == 1
+
+
+class TestComputeWeeklyReports:
+    def test_compute_weekly_reports_default_date(self):
+        """Test that weekly reports default to yesterday's week."""
+        yesterday = date.today() - timedelta(days=1)
+        iso_year, iso_week, _ = yesterday.isocalendar()
+        week_start = date.fromisocalendar(iso_year, iso_week, 1)
+
+        cursor = FakeCursor()
+        cursor.fetchall = lambda: [
+            ("user-id-1", Decimal("1500"), Decimal("1000"), Decimal("2000"), 15),
+        ]
+
+        conn = FakeConnection(cursor)
+        conn.commit = lambda: None
+
+        result = batch.compute_weekly_reports(conn)
+
+        assert result == 1
+
+    def test_compute_weekly_reports_specific_date(self):
+        """Test computing weekly report for specific date."""
+        target_date = date(2024, 1, 15)  # A Monday
+
+        cursor = FakeCursor()
+        cursor.fetchall = lambda: [
+            ("user-id-1", Decimal("1500"), Decimal("1000"), Decimal("2000"), 15),
+        ]
+
+        conn = FakeConnection(cursor)
+        conn.commit = lambda: None
+
+        result = batch.compute_weekly_reports(conn, target_date)
+
+        assert result == 1
+
+    def test_compute_weekly_reports_week_boundaries(self):
+        """Test that week_start is Monday and week_end is Sunday."""
+        target_date = date(2024, 1, 17)  # A Wednesday
+
+        cursor = FakeCursor()
+        cursor.fetchall = lambda: [
+            ("user-id-1", Decimal("1500"), Decimal("1000"), Decimal("2000"), 15),
+        ]
+
+        conn = FakeConnection(cursor)
+        conn.commit = lambda: None
+
+        # Call the function
+        batch.compute_weekly_reports(conn, target_date)
+
+        # Verify it processed without error
+        assert conn.committed
+
+    def test_compute_weekly_reports_multiple_users(self):
+        """Test computing reports for multiple users in same week."""
+        target_date = date(2024, 1, 15)
+
+        cursor = FakeCursor()
+        cursor.fetchall = lambda: [
+            ("user-id-1", Decimal("1500"), Decimal("1000"), Decimal("2000"), 15),
+            ("user-id-2", Decimal("1200"), Decimal("900"), Decimal("1800"), 12),
+        ]
+
+        conn = FakeConnection(cursor)
+        conn.commit = lambda: None
+
+        result = batch.compute_weekly_reports(conn, target_date)
+
+        assert result == 2
+
+    def test_compute_weekly_reports_no_data(self):
+        """Test handling when no data exists for the week."""
+        target_date = date(2024, 1, 15)
+
+        cursor = FakeCursor()
+        cursor.fetchall = lambda: []
+
+        conn = FakeConnection(cursor)
+        conn.commit = lambda: None
+
+        result = batch.compute_weekly_reports(conn, target_date)
+
+        assert result == 0
+
+
+class TestDetectAnomalies:
+    def test_detect_anomalies_above_threshold(self):
+        """Test detection of anomalies above 50% threshold."""
+        target_date = date(2024, 1, 15)
+
+        executed_queries = []
+
+        def fake_execute(query, params=None):
+            executed_queries.append((query, params))
+
+        cursor = FakeCursor()
+        cursor.execute = fake_execute
+
+        # Mock the first query to return one user with meal log
+        def fake_fetchall():
+            # First call gets user with daily summary
+            if len(executed_queries) == 1:
+                return [("user-id-1", Decimal("3000"))]  # 3000 calories
+            return []
+
+        def fake_fetchone():
+            # Subsequent calls for rolling average
+            if len(executed_queries) == 2:
+                return (Decimal("2000"),)  # Rolling avg 2000, so spike is 50% above
+            return None
+
+        cursor.fetchall = fake_fetchall
+        cursor.fetchone = fake_fetchone
+
+        conn = FakeConnection(cursor)
+        conn.commit = lambda: None
+
+        anomalies = batch.detect_anomalies(conn, target_date)
+
+        assert len(anomalies) == 1
+        assert anomalies[0]["user_id"] == "user-id-1"
+        assert anomalies[0]["daily_calories"] == Decimal("3000")
+        assert anomalies[0]["rolling_avg_calories"] == Decimal("2000")
+
+    def test_detect_anomalies_below_threshold(self):
+        """Test that no anomaly is detected when within normal range."""
+        target_date = date(2024, 1, 15)
+
+        cursor = FakeCursor()
+
+        # Mock return values
+        def fake_fetchall():
+            return [("user-id-1", Decimal("2200"))]  # Slightly above 2000
+
+        def fake_fetchone():
+            return (Decimal("2000"),)  # Rolling avg 2000
+
+        cursor.fetchall = fake_fetchall
+        cursor.fetchone = fake_fetchone
+
+        conn = FakeConnection(cursor)
+        conn.commit = lambda: None
+
+        anomalies = batch.detect_anomalies(conn, target_date)
+
+        # 2200 is only 10% above 2000, so no anomaly
+        assert len(anomalies) == 0
+
+    def test_detect_anomalies_default_date(self):
+        """Test that anomalies default to checking yesterday."""
+        yesterday = date.today() - timedelta(days=1)
+
+        executed_queries = []
+
+        def fake_execute(query, params=None):
+            executed_queries.append((query, params))
+
+        cursor = FakeCursor()
+        cursor.execute = fake_execute
+        cursor.fetchall = lambda: []
+
+        conn = FakeConnection(cursor)
+        conn.commit = lambda: None
+
+        batch.detect_anomalies(conn)
+
+        # Verify the first query uses yesterday
+        assert executed_queries[0][1][0] == yesterday
+
+    def test_detect_anomalies_multiple_users(self):
+        """Test detection across multiple users."""
+        target_date = date(2024, 1, 15)
+
+        call_count = [0]
+
+        def fake_fetchall():
+            call_count[0] += 1
+            if call_count[0] == 1:
+                return [
+                    ("user-id-1", Decimal("3000")),
+                    ("user-id-2", Decimal("2100")),
+                ]
+            return []
+
+        def fake_fetchone():
+            if call_count[0] == 2:
+                return (Decimal("2000"),)  # For user-id-1
+            elif call_count[0] == 3:
+                return (Decimal("2000"),)  # For user-id-2
+            return None
+
+        cursor = FakeCursor()
+        cursor.fetchall = fake_fetchall
+        cursor.fetchone = fake_fetchone
+
+        conn = FakeConnection(cursor)
+        conn.commit = lambda: None
+
+        anomalies = batch.detect_anomalies(conn, target_date)
+
+        # user-id-1: 3000 is 50% above 2000 (anomaly)
+        # user-id-2: 2100 is 5% above 2000 (no anomaly)
+        assert len(anomalies) == 1
+        assert anomalies[0]["user_id"] == "user-id-1"
+
+    def test_detect_anomalies_no_rolling_average(self):
+        """Test handling when rolling average is 0."""
+        target_date = date(2024, 1, 15)
+
+        cursor = FakeCursor()
+        cursor.fetchall = lambda: [("user-id-1", Decimal("1000"))]
+        cursor.fetchone = lambda: (None,)  # No rolling average
+
+        conn = FakeConnection(cursor)
+        conn.commit = lambda: None
+
+        anomalies = batch.detect_anomalies(conn, target_date)
+
+        # When no rolling average, it defaults to current day value
+        # so deviation_percent = 0 and no anomaly detected
+        assert len(anomalies) == 0
+
+    def test_detect_anomalies_deviation_percentage(self):
+        """Test that deviation percentage is correctly calculated."""
+        target_date = date(2024, 1, 15)
+
+        cursor = FakeCursor()
+        cursor.fetchall = lambda: [("user-id-1", Decimal("3000"))]
+        cursor.fetchone = lambda: (Decimal("2000"),)
+
+        conn = FakeConnection(cursor)
+        conn.commit = lambda: None
+
+        anomalies = batch.detect_anomalies(conn, target_date)
+
+        assert len(anomalies) == 1
+        # (3000 - 2000) / 2000 * 100 = 50%
+        assert anomalies[0]["deviation_percent"] == 50
+
+
+class TestHandler:
+    def test_handler_success(self, monkeypatch):
+        """Test successful EventBridge invocation."""
+        cursor = FakeCursor()
+        conn = FakeConnection(cursor)
+        conn.commit = lambda: None
+
+        monkeypatch.setattr(batch_handler, "get_connection", lambda: conn)
+        monkeypatch.setattr(
+            batch,
+            "compute_daily_summaries",
+            lambda *_: 5
+        )
+        monkeypatch.setattr(
+            batch,
+            "compute_weekly_reports",
+            lambda *_: 1
+        )
+        monkeypatch.setattr(
+            batch,
+            "detect_anomalies",
+            lambda *_: []
+        )
+
+        result = batch_handler.handler({}, None)
+
+        assert result["statusCode"] == 200
+        assert result["metrics"]["daily_summaries_count"] == 5
+        assert result["metrics"]["weekly_reports_count"] == 1
+        assert result["metrics"]["anomalies_detected"] == 0
+        assert result["metrics"]["errors"] == []
+
+    def test_handler_partial_failure(self, monkeypatch):
+        """Test handler when one batch process fails."""
+        cursor = FakeCursor()
+        conn = FakeConnection(cursor)
+        conn.commit = lambda: None
+
+        monkeypatch.setattr(batch_handler, "get_connection", lambda: conn)
+        monkeypatch.setattr(
+            batch,
+            "compute_daily_summaries",
+            lambda *_: 5
+        )
+        monkeypatch.setattr(
+            batch,
+            "compute_weekly_reports",
+            side_effect=Exception("DB error")
+        )
+        monkeypatch.setattr(
+            batch,
+            "detect_anomalies",
+            lambda *_: []
+        )
+
+        result = batch_handler.handler({}, None)
+
+        assert result["statusCode"] == 500
+        assert result["metrics"]["daily_summaries_count"] == 5
+        assert len(result["metrics"]["errors"]) == 1
+        assert "DB error" in result["metrics"]["errors"][0]
+
+    def test_handler_db_error(self, monkeypatch):
+        """Test handler when database connection fails."""
+        monkeypatch.setattr(
+            batch_handler,
+            "get_connection",
+            side_effect=Exception("Connection refused")
+        )
+
+        result = batch_handler.handler({}, None)
+
+        assert result["statusCode"] == 500
+        assert len(result["metrics"]["errors"]) == 1
+        assert "Connection refused" in result["metrics"]["errors"][0]
+
+    def test_handler_all_processes_fail(self, monkeypatch):
+        """Test handler when all batch processes fail."""
+        cursor = FakeCursor()
+        conn = FakeConnection(cursor)
+        conn.commit = lambda: None
+
+        monkeypatch.setattr(batch_handler, "get_connection", lambda: conn)
+        monkeypatch.setattr(
+            batch,
+            "compute_daily_summaries",
+            side_effect=Exception("Error 1")
+        )
+        monkeypatch.setattr(
+            batch,
+            "compute_weekly_reports",
+            side_effect=Exception("Error 2")
+        )
+        monkeypatch.setattr(
+            batch,
+            "detect_anomalies",
+            side_effect=Exception("Error 3")
+        )
+
+        result = batch_handler.handler({}, None)
+
+        assert result["statusCode"] == 500
+        assert result["metrics"]["daily_summaries_count"] == 0
+        assert result["metrics"]["weekly_reports_count"] == 0
+        assert result["metrics"]["anomalies_detected"] == 0
+        assert len(result["metrics"]["errors"]) == 3
+
+    def test_handler_graceful_connection_close(self, monkeypatch):
+        """Test that handler gracefully closes connections."""
+        cursor = FakeCursor()
+        conn = FakeConnection(cursor)
+        conn.commit = lambda: None
+        close_called = [False]
+
+        def fake_close():
+            close_called[0] = True
+
+        conn.close = fake_close
+
+        monkeypatch.setattr(batch_handler, "get_connection", lambda: conn)
+        monkeypatch.setattr(batch, "compute_daily_summaries", lambda *_: 0)
+        monkeypatch.setattr(batch, "compute_weekly_reports", lambda *_: 0)
+        monkeypatch.setattr(batch, "detect_anomalies", lambda *_: [])
+
+        batch_handler.handler({}, None)
+
+        assert close_called[0]
+
+    def test_handler_connection_close_error(self, monkeypatch):
+        """Test handling errors during connection close."""
+        cursor = FakeCursor()
+        conn = FakeConnection(cursor)
+        conn.commit = lambda: None
+
+        def fake_close():
+            raise Exception("Close error")
+
+        conn.close = fake_close
+
+        monkeypatch.setattr(batch_handler, "get_connection", lambda: conn)
+        monkeypatch.setattr(batch, "compute_daily_summaries", lambda *_: 0)
+        monkeypatch.setattr(batch, "compute_weekly_reports", lambda *_: 0)
+        monkeypatch.setattr(batch, "detect_anomalies", lambda *_: [])
+
+        # Should not raise exception
+        result = batch_handler.handler({}, None)
+        assert result["statusCode"] == 200

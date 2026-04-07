@@ -10,6 +10,10 @@ logger = get_logger(__name__)
 def get_daily_summary(event):
     """
     GET /daily-summary?date=YYYY-MM-DD
+
+    Caching strategy: First attempts to read from pre-computed daily_summaries table
+    (populated by scheduled batch job). Falls back to live calculation if not found,
+    ensuring freshness for same-day summaries.
     """
     cognito_user_id = get_user_id(event)
     params = event.get("queryStringParameters") or {}
@@ -28,21 +32,35 @@ def get_daily_summary(event):
     cur = conn.cursor()
 
     try:
-        query = """
-            SELECT
-                COALESCE(SUM(m.total_calories * ml.quantity), 0) AS total_calories
-            FROM meal_logs ml
-            JOIN meals m ON m.id = ml.meal_id
-            WHERE ml.user_id = %s
-              AND ml.date = %s
+        # Try to read from cached daily_summaries first
+        cache_query = """
+            SELECT total_calories
+            FROM daily_summaries
+            WHERE user_id = %s AND date = %s
         """
-        cur.execute(query, (user_id, date))
-        total_calories = cur.fetchone()[0]
+        cur.execute(cache_query, (user_id, date))
+        cache_result = cur.fetchone()
+
+        if cache_result:
+            total_calories = cache_result[0]
+            logger.info("Fetched daily summary from cache", extra={"user_id": cognito_user_id, "date": date})
+        else:
+            # Fall back to live calculation if not in cache
+            query = """
+                SELECT
+                    COALESCE(SUM(m.total_calories * ml.quantity), 0) AS total_calories
+                FROM meal_logs ml
+                JOIN meals m ON m.id = ml.meal_id
+                WHERE ml.user_id = %s
+                  AND ml.date = %s
+            """
+            cur.execute(query, (user_id, date))
+            total_calories = cur.fetchone()[0]
+            logger.info("Fetched daily summary (live calculation)", extra={"user_id": cognito_user_id, "date": date})
     finally:
         cur.close()
         conn.close()
 
-    logger.info("Fetched daily summary", extra={"user_id": cognito_user_id, "date": date})
     return response(200, {
         "date": date,
         "total_calories": total_calories

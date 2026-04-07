@@ -1,0 +1,111 @@
+{
+  "DashboardName": "DietTracker-Operations",
+  "DashboardBody": {
+    "widgets": [
+      {
+        "type": "metric",
+        "properties": {
+          "metrics": [
+            ["AWS/Lambda", "Duration", {"stat": "Average", "label": "Avg"}],
+            [".", ".", {"stat": "Maximum", "label": "Max"}]
+          ],
+          "period": 300,
+          "stat": "Average",
+          "region": "us-east-1",
+          "title": "Lambda Duration (All Functions)",
+          "yAxis": {
+            "left": {
+              "label": "Milliseconds"
+            }
+          }
+        }
+      },
+      {
+        "type": "metric",
+        "properties": {
+          "metrics": [
+            ["AWS/Lambda", "Errors", {"stat": "Sum"}]
+          ],
+          "period": 300,
+          "stat": "Sum",
+          "region": "us-east-1",
+          "title": "Lambda Errors (All Functions)",
+          "yAxis": {
+            "left": {
+              "label": "Count"
+            }
+          }
+        }
+      },
+      {
+        "type": "metric",
+        "properties": {
+          "metrics": [
+            ["AWS/Lambda", "Invocations", {"stat": "Sum"}]
+          ],
+          "period": 300,
+          "stat": "Sum",
+          "region": "us-east-1",
+          "title": "Lambda Invocations (All Functions)",
+          "yAxis": {
+            "left": {
+              "label": "Count"
+            }
+          }
+        }
+      },
+      {
+        "type": "metric",
+        "properties": {
+          "metrics": [
+            ["DietTracker", "RequestLatency", {"stat": "p50", "label": "p50"}],
+            ["...", {"stat": "p95", "label": "p95"}],
+            ["...", {"stat": "p99", "label": "p99"}]
+          ],
+          "period": 300,
+          "region": "us-east-1",
+          "title": "Custom RequestLatency (p50, p95, p99)",
+          "yAxis": {
+            "left": {
+              "label": "Milliseconds"
+            }
+          }
+        }
+      },
+      {
+        "type": "metric",
+        "properties": {
+          "metrics": [
+            ["AWS/RDS", "CPUUtilization", {"stat": "Average"}]
+          ],
+          "period": 300,
+          "stat": "Average",
+          "region": "us-east-1",
+          "title": "RDS CPUUtilization",
+          "yAxis": {
+            "left": {
+              "label": "Percent"
+            }
+          }
+        }
+      },
+      {
+        "type": "metric",
+        "properties": {
+          "metrics": [
+            ["AWS/RDS", "DatabaseConnections", {"stat": "Average"}]
+          ],
+          "period": 300,
+          "stat": "Average",
+          "region": "us-east-1",
+          "title": "RDS DatabaseConnections",
+          "yAxis": {
+            "left": {
+              "label": "Count"
+            }
+          }
+        }
+      }
+    ]
+  }
+}
