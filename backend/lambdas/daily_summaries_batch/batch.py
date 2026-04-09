@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, date
+from decimal import Decimal
 from backend.shared.logging import get_logger
 
 logger = get_logger(__name__)
@@ -180,11 +181,11 @@ def detect_anomalies(conn, target_date=None):
 
             # Check if current day is > 50% above rolling average
             if rolling_avg > 0:
-                deviation_percent = ((daily_calories - rolling_avg) / rolling_avg) * 100
+                deviation_percent = ((daily_calories - rolling_avg) / rolling_avg) * Decimal('100')
             else:
                 deviation_percent = 0
 
-            if daily_calories > rolling_avg * 1.5:
+            if daily_calories > rolling_avg * Decimal('1.5'):
                 # Insert anomaly
                 anomaly_insert = """
                     INSERT INTO nutrition_anomalies (user_id, date, daily_calories, rolling_avg_calories, deviation_percent, created_at)
