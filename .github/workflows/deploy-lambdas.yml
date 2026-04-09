@@ -1,9 +1,13 @@
 name: Deploy AWS Lambdas
 
+# LEGACY WORKFLOW: This workflow is maintained as an escape hatch for emergency Lambda deployments.
+# For normal deployments, use:
+#   - deploy-staging.yml (staging environment)
+#   - deploy-prod.yml (production environment via manual workflow_dispatch)
+
 on:
   push:
     branches:
-      - main
       - lambda-deployment
 
 jobs:

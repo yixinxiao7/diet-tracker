@@ -1,0 +1,40 @@
+name: Test Backend
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "backend/**"
+      - ".github/workflows/test-backend.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/**"
+      - ".github/workflows/test-backend.yml"
+
+jobs:
+  test-backend:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Pipenv
+        run: pip install pipenv
+
+      - name: Install dependencies
+        run: pipenv install --dev
+
+      - name: Run unit tests
+        run: pipenv run pytest backend/tests/ -v --ignore=backend/tests/integration --ignore=backend/tests/smoke --cov=backend --cov-report=xml
+
+      - name: Run integration tests
+        run: pipenv run pytest backend/tests/integration/ -v
