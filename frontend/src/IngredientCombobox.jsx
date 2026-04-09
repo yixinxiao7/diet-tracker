@@ -50,9 +50,11 @@ function IngredientCombobox({ ingredients, value, onChange }) {
     [ingredients, value],
   )
 
-  useEffect(() => {
+  const prevSelectedRef = useRef(selectedIngredient)
+  if (prevSelectedRef.current !== selectedIngredient) {
+    prevSelectedRef.current = selectedIngredient
     setSearchText(selectedIngredient ? selectedIngredient.name : '')
-  }, [selectedIngredient])
+  }
 
   const filtered = useMemo(() => {
     const q = searchText.trim().toLowerCase()
@@ -81,9 +83,11 @@ function IngredientCombobox({ ingredients, value, onChange }) {
     return ingredients.filter((i) => fuzzyMatch(q, i.name.toLowerCase()))
   }, [ingredients, searchText])
 
-  useEffect(() => {
+  const prevFilteredRef = useRef(filtered)
+  if (prevFilteredRef.current !== filtered) {
+    prevFilteredRef.current = filtered
     setHighlightIndex(0)
-  }, [filtered])
+  }
 
   // Scroll highlighted option into view
   useEffect(() => {

@@ -26,13 +26,18 @@ jobs:
         run: pip install pipenv
 
       - name: Install backend dependencies
+        working-directory: backend
         run: pipenv install --dev
 
       - name: Run backend unit tests
         run: pipenv run pytest backend/tests/ -v --ignore=backend/tests/integration --ignore=backend/tests/smoke --cov=backend --cov-report=xml
+        env:
+          PIPENV_PIPFILE: backend/Pipfile
 
       - name: Run backend integration tests
         run: pipenv run pytest backend/tests/integration/ -v
+        env:
+          PIPENV_PIPFILE: backend/Pipfile
 
       - name: Set up Node
         uses: actions/setup-node@v4

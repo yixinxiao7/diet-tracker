@@ -26,4 +26,10 @@ export default defineConfig([
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
     },
   },
+  {
+    files: ['mock-api/**/*.js', 'scripts/**/*.js', 'playwright.config.js'],
+    languageOptions: {
+      globals: globals.node,
+    },
+  },
 ])
