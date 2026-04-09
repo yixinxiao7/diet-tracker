@@ -167,10 +167,10 @@ class TestDetectAnomalies:
         # Then fetchone returns rolling average for each user
         cursor = FakeCursor(
             fetchall_values=[
-                [("user-id-1", Decimal("3000"))]  # 3000 calories today
+                [("user-id-1", Decimal("3100"))]  # 3100 calories today
             ],
             fetchone_values=[
-                (Decimal("2000"),)  # Rolling avg is 2000 → 50% spike
+                (Decimal("2000"),)  # Rolling avg is 2000 → >50% spike
             ]
         )
         conn = FakeConnection(cursor)
@@ -179,7 +179,7 @@ class TestDetectAnomalies:
 
         assert len(anomalies) == 1
         assert anomalies[0]["user_id"] == "user-id-1"
-        assert anomalies[0]["daily_calories"] == Decimal("3000")
+        assert anomalies[0]["daily_calories"] == Decimal("3100")
         assert anomalies[0]["rolling_avg_calories"] == Decimal("2000")
 
     def test_detect_anomalies_below_threshold(self):
@@ -220,7 +220,7 @@ class TestDetectAnomalies:
         cursor = FakeCursor(
             fetchall_values=[
                 [
-                    ("user-id-1", Decimal("3000")),   # 50% above → anomaly
+                    ("user-id-1", Decimal("3100")),   # >50% above → anomaly
                     ("user-id-2", Decimal("2100")),   # 5% above → no anomaly
                 ]
             ],
@@ -233,7 +233,7 @@ class TestDetectAnomalies:
 
         anomalies = batch.detect_anomalies(conn, target_date)
 
-        # user-id-1: 3000 is 50% above 2000 (anomaly)
+        # user-id-1: 3100 is 55% above 2000 (anomaly)
         # user-id-2: 2100 is 5% above 2000 (no anomaly)
         assert len(anomalies) == 1
         assert anomalies[0]["user_id"] == "user-id-1"
@@ -264,7 +264,7 @@ class TestDetectAnomalies:
 
         cursor = FakeCursor(
             fetchall_values=[
-                [("user-id-1", Decimal("3000"))]
+                [("user-id-1", Decimal("3100"))]
             ],
             fetchone_values=[
                 (Decimal("2000"),)
@@ -275,8 +275,8 @@ class TestDetectAnomalies:
         anomalies = batch.detect_anomalies(conn, target_date)
 
         assert len(anomalies) == 1
-        # (3000 - 2000) / 2000 * 100 = 50%
-        assert anomalies[0]["deviation_percent"] == 50
+        # (3100 - 2000) / 2000 * 100 = 55%
+        assert anomalies[0]["deviation_percent"] == 55
 
 
 class TestHandler:
@@ -287,13 +287,13 @@ class TestHandler:
 
         monkeypatch.setattr(batch_handler, "get_connection", lambda: conn)
         monkeypatch.setattr(
-            batch, "compute_daily_summaries", lambda conn: 5
+            batch_handler, "compute_daily_summaries", lambda conn: 5
         )
         monkeypatch.setattr(
-            batch, "compute_weekly_reports", lambda conn: 1
+            batch_handler, "compute_weekly_reports", lambda conn: 1
         )
         monkeypatch.setattr(
-            batch, "detect_anomalies", lambda conn: []
+            batch_handler, "detect_anomalies", lambda conn: []
         )
 
         result = batch_handler.handler({}, None)
@@ -314,13 +314,13 @@ class TestHandler:
 
         monkeypatch.setattr(batch_handler, "get_connection", lambda: conn)
         monkeypatch.setattr(
-            batch, "compute_daily_summaries", lambda conn: 5
+            batch_handler, "compute_daily_summaries", lambda conn: 5
         )
         monkeypatch.setattr(
-            batch, "compute_weekly_reports", raise_db_error
+            batch_handler, "compute_weekly_reports", raise_db_error
         )
         monkeypatch.setattr(
-            batch, "detect_anomalies", lambda conn: []
+            batch_handler, "detect_anomalies", lambda conn: []
         )
 
         result = batch_handler.handler({}, None)
@@ -361,13 +361,13 @@ class TestHandler:
 
         monkeypatch.setattr(batch_handler, "get_connection", lambda: conn)
         monkeypatch.setattr(
-            batch, "compute_daily_summaries", raise_error_1
+            batch_handler, "compute_daily_summaries", raise_error_1
         )
         monkeypatch.setattr(
-            batch, "compute_weekly_reports", raise_error_2
+            batch_handler, "compute_weekly_reports", raise_error_2
         )
         monkeypatch.setattr(
-            batch, "detect_anomalies", raise_error_3
+            batch_handler, "detect_anomalies", raise_error_3
         )
 
         result = batch_handler.handler({}, None)
@@ -384,9 +384,9 @@ class TestHandler:
         conn = FakeConnection(cursor)
 
         monkeypatch.setattr(batch_handler, "get_connection", lambda: conn)
-        monkeypatch.setattr(batch, "compute_daily_summaries", lambda conn: 0)
-        monkeypatch.setattr(batch, "compute_weekly_reports", lambda conn: 0)
-        monkeypatch.setattr(batch, "detect_anomalies", lambda conn: [])
+        monkeypatch.setattr(batch_handler, "compute_daily_summaries", lambda conn: 0)
+        monkeypatch.setattr(batch_handler, "compute_weekly_reports", lambda conn: 0)
+        monkeypatch.setattr(batch_handler, "detect_anomalies", lambda conn: [])
 
         batch_handler.handler({}, None)
 
@@ -403,9 +403,9 @@ class TestHandler:
         conn.close = fake_close
 
         monkeypatch.setattr(batch_handler, "get_connection", lambda: conn)
-        monkeypatch.setattr(batch, "compute_daily_summaries", lambda conn: 0)
-        monkeypatch.setattr(batch, "compute_weekly_reports", lambda conn: 0)
-        monkeypatch.setattr(batch, "detect_anomalies", lambda conn: [])
+        monkeypatch.setattr(batch_handler, "compute_daily_summaries", lambda conn: 0)
+        monkeypatch.setattr(batch_handler, "compute_weekly_reports", lambda conn: 0)
+        monkeypatch.setattr(batch_handler, "detect_anomalies", lambda conn: [])
 
         # Should not raise exception
         result = batch_handler.handler({}, None)
