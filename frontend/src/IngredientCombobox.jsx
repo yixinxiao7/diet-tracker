@@ -50,9 +50,8 @@ function IngredientCombobox({ ingredients, value, onChange }) {
     [ingredients, value],
   )
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing derived state from prop
   useEffect(() => {
-    setSearchText(selectedIngredient ? selectedIngredient.name : '')
+    setSearchText(selectedIngredient ? selectedIngredient.name : '') // eslint-disable-line react-hooks/set-state-in-effect -- syncing derived state from prop
   }, [selectedIngredient])
 
   const filtered = useMemo(() => {
@@ -82,9 +81,8 @@ function IngredientCombobox({ ingredients, value, onChange }) {
     return ingredients.filter((i) => fuzzyMatch(q, i.name.toLowerCase()))
   }, [ingredients, searchText])
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- resetting highlight on filter change
   useEffect(() => {
-    setHighlightIndex(0)
+    setHighlightIndex(0) // eslint-disable-line react-hooks/set-state-in-effect -- resetting highlight on filter change
   }, [filtered])
 
   // Scroll highlighted option into view
