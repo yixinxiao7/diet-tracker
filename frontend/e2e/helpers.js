@@ -3,7 +3,7 @@ export function uniqueName(prefix) {
 }
 
 export async function goToTab(page, name) {
-  await page.getByRole('button', { name }).click()
+  await page.getByRole('tab', { name }).click()
 }
 
 export async function addIngredient(page, { name, caloriesPerUnit, unit = 'g', servingSize }) {
