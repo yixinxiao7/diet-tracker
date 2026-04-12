@@ -232,9 +232,12 @@ export async function getAccessToken() {
 }
 
 export async function getIdToken() {
+  if (AUTH_BYPASS) {
+    const tokens = ensureBypassTokens()
+    return tokens.id_token
+  }
   const tokens = getStoredTokens()
   if (!tokens?.id_token) return null
-  if (AUTH_BYPASS) return tokens.id_token
 
   const now = Date.now()
   if (tokens.expires_at && tokens.expires_at > now + 30000) {
