@@ -18,7 +18,10 @@ export async function addIngredient(page, { name, caloriesPerUnit, unit = 'g', s
 
 export async function addMeal(page, { name, ingredientName, quantity = 1 }) {
   await page.getByLabel('Meal name').fill(name)
-  await page.getByLabel('Ingredient').selectOption({ label: ingredientName })
+  // Ingredient picker is a combobox — type to search, then click the option
+  const combobox = page.getByRole('combobox', { name: 'Ingredient' })
+  await combobox.fill(ingredientName)
+  await page.getByRole('option', { name: ingredientName }).click()
   await page.getByLabel('Quantity').fill(String(quantity))
   await page.getByRole('button', { name: 'Add' }).click()
   await page.getByRole('button', { name: 'Save meal' }).click()

@@ -35,7 +35,9 @@ test('edits a meal and persists updated ingredients', async ({ page }) => {
   await expect(page.getByRole('heading', { name: mealName })).toBeVisible()
 
   await page.getByLabel('Meal name').fill(`${mealName} Updated`)
-  await page.getByLabel('Ingredient').selectOption({ label: ingredientName })
+  const combobox = page.getByRole('combobox', { name: 'Ingredient' })
+  await combobox.fill(ingredientName)
+  await page.getByRole('option', { name: ingredientName }).click()
   await page.getByLabel('Quantity').fill('2')
   await page.getByRole('button', { name: 'Add' }).click()
   await page.getByRole('button', { name: 'Save changes' }).click()
