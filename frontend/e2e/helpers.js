@@ -28,7 +28,7 @@ export async function addMeal(page, { name, ingredientName, quantity = 1 }) {
 }
 
 export async function addMealLog(page, { mealName, date }) {
-  await page.getByLabel('Meal').selectOption({ label: mealName })
+  await page.getByLabel('Meal', { exact: true }).selectOption({ label: mealName })
   if (date) {
     await page.getByLabel('Date').fill(date)
   }
