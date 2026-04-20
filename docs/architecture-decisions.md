@@ -245,6 +245,25 @@ This document captures the major technical decisions behind the diet-tracker app
 
 ---
 
+## ADR-013: Shared Backend Infrastructure Across Environments
+
+**Status:** Accepted
+
+**Context:** A fully isolated staging environment would require duplicating the RDS instance (~$15/month), API Gateway stage, Lambda function aliases, and Cognito user pool. The CI/CD pipeline already separates environments at the GitHub Actions level (distinct environments, secrets, and approval gates), and the frontend has separate S3 buckets for staging and production.
+
+**Decision:** Staging and production share the same API Gateway, Lambda functions, RDS database, and Cognito user pool. Environment separation is enforced at the CI/CD layer (GitHub environments with required reviewers for production) and the frontend hosting layer (separate S3 buckets), not at the AWS infrastructure layer.
+
+**Consequences:**
+- Monthly AWS costs stay minimal — a single RDS instance, single API Gateway, and single Cognito pool instead of doubling each.
+- The CI pipeline validates code correctness through unit tests (pytest), mock-API E2E tests (Playwright), and linting before any deployment reaches production.
+- No pre-production environment to catch deployment-specific issues (e.g., IAM permission changes, environment variable misconfigurations, or API contract mismatches between frontend and backend).
+- Load tests and smoke tests run against production data. Test data cleanup must be reliable to avoid contamination.
+- For a team environment, isolated staging infrastructure would be essential. The current approach is a deliberate cost optimization for a single-developer project with low traffic.
+
+**Future direction:** If the project onboards additional users or contributors, introduce a separate API Gateway stage (`staging`) backed by Lambda aliases and a dedicated RDS schema or instance. AWS CDK (see ADR-010) would make this duplication manageable.
+
+---
+
 ## Summary of Key Trade-offs
 
 | Decision | Optimized For | Accepted Risk |
@@ -257,3 +276,4 @@ This document captures the major technical decisions behind the diet-tracker app
 | OIDC for CI/CD | No long-lived credentials | AWS-GitHub coupling |
 | No IaC | Fast setup | Config drift, manual disaster recovery |
 | Mock API for E2E | Fast, reliable tests | API contract drift risk |
+| Shared backend infra | Low AWS costs | No pre-production validation of deployments |
