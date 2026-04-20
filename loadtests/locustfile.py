@@ -70,7 +70,8 @@ class DietTrackerUser(HttpUser):
         """Set up auth headers and bootstrap the user."""
         token = os.environ.get("AUTH_TOKEN") or os.environ.get("AUTH_BYPASS_TOKEN")
         if token:
-            self.client.headers["Authorization"] = f"Bearer {token}"
+            token = token.strip()
+            self.client.headers.update({"Authorization": f"Bearer {token}"})
 
         # Track created resource IDs for cleanup
         self._ingredient_ids = []
@@ -124,7 +125,7 @@ class DietTrackerUser(HttpUser):
         end = date.today()
         start = end - timedelta(days=7)
         self.client.get(
-            f"/daily-summary?start_date={start.isoformat()}&end_date={end.isoformat()}",
+            f"/daily-summary?from={start.isoformat()}&to={end.isoformat()}",
             name="/daily-summary [GET range]",
         )
 
