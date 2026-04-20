@@ -18,12 +18,16 @@ flowchart LR
         Cognito[Cognito<br>Hosted UI + PKCE]
         APIGW[API Gateway<br>JWT Authorizer]
         SM[Secrets Manager]
+        EB[EventBridge<br>Daily Schedule]
+        CW[CloudWatch<br>Metrics + Alarms]
+        SNS[SNS<br>Alerts]
 
         subgraph Lambdas
             meals[meals]
             meal_logs[meal_logs]
             summary[summary]
             users[users]
+            batch[daily_summaries_batch]
         end
 
         subgraph VPC
@@ -40,6 +44,9 @@ flowchart LR
     APIGW --> Lambdas
     Lambdas -->|fetch creds| SM
     Lambdas -->|public internet| RDS
+    Lambdas -->|emit metrics| CW
+    EB -->|scheduled trigger| batch
+    CW -->|alarm| SNS
 ```
 
 ### Key Security Properties
@@ -48,6 +55,8 @@ flowchart LR
 * JWT-based authentication only
 * All database access isolated in Lambda
 * Secrets never stored in code or frontend
+
+For detailed reasoning behind every architectural decision, see [`docs/architecture-decisions.md`](docs/architecture-decisions.md).
 
 ---
 
@@ -82,11 +91,25 @@ flowchart LR
 
 ### Infrastructure & CI/CD
 
-* GitHub for source control
-* GitHub Actions for Lambda deployments
+* GitHub Actions CI/CD with OIDC authentication (no long-lived AWS credentials)
+* Separate GitHub environments: `staging` (auto-deploy on push to main) and `production` (manual trigger + required reviewer approval)
+* Path-filtered workflows — only rebuilds what changed (`dorny/paths-filter`)
 * AWS IAM (least-privilege roles)
 * ACM certificate for custom domain HTTPS
-* Playwright for frontend E2E tests (mock API)
+
+### Testing & Quality
+
+* Backend: pytest unit + integration tests with coverage reporting
+* Frontend: ESLint + Playwright E2E tests against a local mock API
+* Load testing: Locust-based performance tests simulating realistic user sessions
+* Playwright reports uploaded as GitHub Actions artifacts (30-day retention)
+
+### Observability
+
+* Structured JSON logging via custom `StructuredLogger`
+* Custom CloudWatch metrics under the `DietTracker` namespace (request latency, DB query time)
+* CloudWatch alarms: high error rate, high p99 latency, slow DB queries, batch job failures, RDS CPU
+* SNS email notifications when alarms fire
 
 ---
 
@@ -114,11 +137,19 @@ Note: the frontend currently sends the Cognito ID token as the Bearer token for 
 * `npm run test:e2e` starts the dev server + mock API and runs Playwright tests in `frontend/e2e`.
 * `VITE_AUTH_BYPASS=1` bypasses Cognito for tests (injects test tokens in the frontend).
 
-### CI/CD notes
+### Load Testing
 
-* Lambda deploys use `aws-actions/aws-lambda-deploy@v1`.
-* Lambdas run outside the VPC (no VPC configuration needed).
-* Environment variables `DB_SECRET_ARN`, `DB_NAME`, and `ALLOWED_ORIGIN` are injected via GitHub Actions secrets.
+Run the Locust load test suite against a live API:
+
+```bash
+pip install locust
+export AUTH_TOKEN="<valid-cognito-id-token>"
+locust -f loadtests/locustfile.py \
+    --host https://<api-url> \
+    --headless -u 10 -r 2 -t 60s
+```
+
+The test simulates realistic user sessions (weighted toward reads), cleans up test data on completion, and fails the run if the error rate exceeds 5%. See `loadtests/README.md` for details.
 
 ---
 
@@ -251,49 +282,57 @@ List endpoints support optional pagination query params: `limit` and `offset`.
 
 ```text
 diet-tracker/
-├── frontend/              # Vite + React SPA
-│   ├── package.json
-│   ├── public/
-│   └── src/
-│       ├── auth/          # Cognito auth helpers
-│       ├── api/           # API client wrappers
-│       ├── components/    # Reusable UI components
-│       ├── pages/         # App pages / views
-│       └── App.jsx
+├── frontend/                # Vite + React SPA
+│   ├── src/
+│   │   ├── auth/            # Cognito auth helpers
+│   │   ├── api/             # API client wrappers
+│   │   ├── App.jsx
+│   │   ├── App.css
+│   │   └── index.css        # Design system (CSS custom properties)
+│   ├── e2e/                 # Playwright E2E tests
+│   ├── mock-api/            # Local mock API server for testing
+│   ├── playwright.config.js
+│   └── package.json
 │
 ├── backend/
 │   ├── lambdas/
-│   │   ├── meals/
-│   │   │   └── handler.py
-│   │   ├── meal_logs/
-│   │   │   └── handler.py
-│   │   ├── summary/
-│   │   │   └── handler.py
-│   │   └── users/
-│   │       └── handler.py
-│   │
+│   │   ├── meals/           # Ingredients + meals CRUD
+│   │   ├── meal_logs/       # Meal logging
+│   │   ├── summary/         # Daily/range calorie summaries
+│   │   ├── users/           # User bootstrap + profile
+│   │   └── daily_summaries_batch/  # Scheduled batch pre-computation
 │   ├── shared/
-│   │   ├── db.py          # DB connection logic
-│   │   ├── auth.py        # Cognito claim helpers
-│   │   ├── response.py    # JSON + CORS responses
-│   │   ├── validation.py  # UUID/date validation helpers
-│   │   └── logging.py     # Structured logger helper
-│   │
-│   ├── tests/             # Pytest suite
+│   │   ├── db.py            # DB connection logic
+│   │   ├── auth.py          # Cognito claim helpers
+│   │   ├── response.py      # JSON + CORS responses
+│   │   ├── validation.py    # UUID/date validation helpers
+│   │   ├── logging.py       # Structured JSON logger
+│   │   └── metrics.py       # CloudWatch custom metrics
+│   ├── tests/               # Pytest unit + integration suite
 │   ├── Pipfile
 │   └── Pipfile.lock
 │
 ├── infra/
-│   └── sql/
-│       └── schema.sql
+│   ├── sql/                 # Database schema + migrations
+│   └── cloudwatch/          # Alarm and dashboard JSON definitions
+│
+├── loadtests/
+│   ├── locustfile.py        # Locust load test script
+│   └── README.md            # Load testing documentation
+│
+├── docs/
+│   └── architecture-decisions.md  # ADRs (13 decisions)
 │
 ├── .github/
 │   └── workflows/
-│       └── deploy-lambdas.yml
+│       ├── test-backend.yml       # PR/push: pytest suite
+│       ├── test-frontend.yml      # PR/push: ESLint + Playwright
+│       ├── deploy-staging.yml     # Auto-deploy to staging on push to main
+│       └── deploy-prod.yml        # Manual production deploy + approval gate
 │
 ├── ARCHITECTURE.md
 ├── README.md
-└── .gitignore
+└── CLAUDE.md
 ```
 
 ---
@@ -320,27 +359,30 @@ pipenv run pytest
 
 ## 🚀 Deployment
 
-### Frontend
+All deployments are automated through GitHub Actions with OIDC-based AWS authentication (no long-lived credentials).
 
-1. Install dependencies
+### CI/CD Pipeline
 
-   ```bash
-   cd frontend
-   npm install
-   ```
-2. Build the React app
+```
+Push to main
+  ├── paths-filter detects changed files
+  ├── Test Backend (pytest unit + integration) ─── if backend/ changed
+  ├── Test Frontend (ESLint + Playwright E2E) ─── if frontend/ changed
+  ├── Deploy Backend to Staging ─── after tests pass
+  └── Deploy Frontend to Staging ─── after tests pass
 
-   ```bash
-   npm run build
-   ```
-3. Upload `frontend/dist/` to the S3 bucket
-4. Served via CloudFront distribution (OAC + private bucket) at `diet-tracker.yixinx.com`
+Manual trigger (workflow_dispatch)
+  ├── Full test suite (backend + frontend)
+  ├── Required reviewer approval (production environment)
+  ├── Deploy Backend to Production
+  └── Deploy Frontend to Production + CloudFront invalidation
+```
 
-### Backend (via GitHub Actions)
+### Environment Configuration
 
-* Push to `main` or `lambda-deployment` branch triggers deployment
-* Lambda functions packaged and deployed
-* Environment variables injected at deploy time: `DB_SECRET_ARN`, `DB_NAME`, `ALLOWED_ORIGIN` (should match the custom domain), optional `LOG_LEVEL`
+* **Staging**: Auto-deploys on push to `main`. Lambda functions named `diet-tracker-staging-*`, frontend synced to `diet-tracker-ui-staging` S3 bucket.
+* **Production**: Manual trigger with required reviewer approval. Lambda functions named `diet-tracker-*`, frontend synced to `diet-tracker-ui` S3 bucket and served via CloudFront at `diet-tracker.yixinx.com`.
+* Environment variables injected at deploy time: `DB_SECRET_ARN`, `DB_NAME`, `ALLOWED_ORIGIN`, optional `LOG_LEVEL`.
 
 ---
 
@@ -360,20 +402,21 @@ After free tier, expected cost is dominated by RDS (~$12–15/month).
 
 ## 🧭 Project Goals
 
-* Simple, personal-use diet tracking
-* Accurate calorie calculation
-* Minimal AWS complexity
-* Secure-by-default architecture
-* Easy to extend in the future
+* Simple, personal-use diet tracking with accurate calorie calculation
+* Secure-by-default architecture (JWT auth, least-privilege IAM, Secrets Manager)
+* Production-grade CI/CD with test gates and environment separation
+* Observability through structured logging, custom metrics, and alerting
+* Cost-optimized for low-traffic workloads (free-tier friendly)
+* Documented architectural decisions with clear trade-off reasoning
 
 ---
 
 ## 📌 Future Enhancements (Optional)
 
-* SQL views for calorie aggregation
-* Charts and weekly summaries
-* Direct S3 uploads for images
-* Mobile-friendly UI
+* Infrastructure-as-Code (AWS CDK) for reproducible environments
+* Isolated staging backend (separate API Gateway stage, Lambda aliases, RDS schema)
+* Direct S3 uploads for meal/ingredient images
+* CloudWatch dashboard for real-time operational visibility
 
 ---
 
