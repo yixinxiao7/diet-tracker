@@ -434,6 +434,43 @@ function App() {
     }
   }
 
+  if (authStatus === 'checking') {
+    return (
+      <div className="login-page">
+        <div className="login-card">
+          <p className="eyebrow">Diet Tracker</p>
+          <h1>Plan with intention.</h1>
+          <span className="pill">Signing you in…</span>
+        </div>
+      </div>
+    )
+  }
+
+  if (authStatus === 'unauthenticated') {
+    return (
+      <div className="login-page">
+        <div className="login-card">
+          <p className="eyebrow">Diet Tracker</p>
+          <h1>Plan with intention.</h1>
+          <p className="subtitle">
+            Ingredients, meals, logs, and daily totals in one place.
+          </p>
+          {configErrors.length > 0 && (
+            <div className="alert warning" role="alert">
+              Missing environment variables: {configErrors.join(', ')}
+            </div>
+          )}
+          {authError && (
+            <div className="alert error" role="alert">{authError}</div>
+          )}
+          <button className="button primary login-cta" onClick={login}>
+            Sign in to get started
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="app">
       <header className="app-header">
@@ -445,28 +482,10 @@ function App() {
           </p>
         </div>
         <div className="auth-card">
-          <div>
-            {authStatus === 'authenticated' ? (
-              <p className="meta-value">{userEmail || 'Signed in'}</p>
-            ) : (
-              <p className="meta-value muted">Not signed in</p>
-            )}
-          </div>
-          {authStatus === 'checking' && (
-            <button className="button ghost" disabled>
-              Checking...
-            </button>
-          )}
-          {authStatus === 'unauthenticated' && (
-            <button className="button primary" onClick={login}>
-              Sign in
-            </button>
-          )}
-          {authStatus === 'authenticated' && (
-            <button className="button ghost" onClick={logout}>
-              Log out
-            </button>
-          )}
+          <p className="meta-value">{userEmail || 'Signed in'}</p>
+          <button className="button ghost" onClick={logout}>
+            Log out
+          </button>
         </div>
       </header>
 
@@ -475,7 +494,6 @@ function App() {
           Missing environment variables: {configErrors.join(', ')}
         </div>
       )}
-      {authError && <div className="alert error" role="alert">{authError}</div>}
 
       <nav className="tabs" role="tablist" aria-label="Main sections">
         {TABS.map((tab) => (
@@ -495,19 +513,7 @@ function App() {
       </nav>
 
       <main className="panel">
-        {authStatus !== 'authenticated' && (
-          <div className="empty-state">
-            <h2>Track what you eat, effortlessly</h2>
-            <p className="muted">
-              Add ingredients with calorie info, combine them into meals, then log what you eat each day to see your totals.
-            </p>
-            <button className="button primary" onClick={login}>
-              Sign in to get started
-            </button>
-          </div>
-        )}
-
-        {authStatus === 'authenticated' && activeTab === 'ingredients' && (
+        {activeTab === 'ingredients' && (
           <section className="section" role="tabpanel" id="panel-ingredients" aria-labelledby="tab-ingredients">
             <div className="section-header">
               <h2>Ingredients</h2>
@@ -611,7 +617,7 @@ function App() {
           </section>
         )}
 
-        {authStatus === 'authenticated' && activeTab === 'meals' && (
+        {activeTab === 'meals' && (
           <section className="section" role="tabpanel" id="panel-meals" aria-labelledby="tab-meals">
             <div className="section-header">
               <h2>Meals</h2>
@@ -765,7 +771,7 @@ function App() {
           </section>
         )}
 
-        {authStatus === 'authenticated' && activeTab === 'logs' && (
+        {activeTab === 'logs' && (
           <section className="section" role="tabpanel" id="panel-logs" aria-labelledby="tab-logs">
             <div className="section-header">
               <h2>Meal Logs</h2>
@@ -852,7 +858,7 @@ function App() {
           </section>
         )}
 
-        {authStatus === 'authenticated' && activeTab === 'summary' && (
+        {activeTab === 'summary' && (
           <section className="section" role="tabpanel" id="panel-summary" aria-labelledby="tab-summary">
             <div className="section-header">
               <h2>Summary</h2>
