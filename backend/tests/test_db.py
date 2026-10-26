@@ -34,21 +34,10 @@ def test_get_internal_user_id_missing():
     assert get_internal_user_id(conn, "auth-user") is None
 
 
-def _install_fake_connect(monkeypatch, calls, healthy=True):
-    class FakeHealthCursor:
-        def execute(self, *args, **kwargs):
-            if not healthy:
-                raise Exception("connection lost")
-
-        def close(self):
-            pass
-
+def _install_fake_connect(monkeypatch, calls):
     class FakePsycopgConn:
         def __init__(self):
             self.closed = 0
-
-        def cursor(self):
-            return FakeHealthCursor()
 
         def close(self):
             self.closed = 1
@@ -57,19 +46,16 @@ def _install_fake_connect(monkeypatch, calls, healthy=True):
         calls.append((args, kwargs))
         return FakePsycopgConn()
 
-    monkeypatch.setattr(db_module, "_connection", None)
     monkeypatch.setattr(db_module.psycopg2, "connect", fake_connect)
 
 
-def test_get_connection_uses_database_url_and_caches(monkeypatch):
+def test_get_connection_uses_database_url(monkeypatch):
     calls = []
     monkeypatch.setenv("DATABASE_URL", "postgresql://user:pass@pooler:6543/postgres")
     _install_fake_connect(monkeypatch, calls)
 
-    conn1 = db_module.get_connection()
-    conn2 = db_module.get_connection()
+    db_module.get_connection()
 
-    assert conn1 is conn2
     assert len(calls) == 1
     args, kwargs = calls[0]
     assert args == ("postgresql://user:pass@pooler:6543/postgres",)
@@ -77,19 +63,7 @@ def test_get_connection_uses_database_url_and_caches(monkeypatch):
     assert "options" not in kwargs
 
 
-def test_get_connection_reconnects_when_unhealthy(monkeypatch):
-    calls = []
-    monkeypatch.setenv("DATABASE_URL", "postgresql://user:pass@pooler:6543/postgres")
-    _install_fake_connect(monkeypatch, calls, healthy=False)
-
-    conn1 = db_module.get_connection()
-    conn2 = db_module.get_connection()
-
-    assert conn1 is not conn2
-    assert len(calls) == 2
-
-
-def test_get_connection_reconnects_when_closed(monkeypatch):
+def test_get_connection_opens_a_new_connection_per_call(monkeypatch):
     calls = []
     monkeypatch.setenv("DATABASE_URL", "postgresql://user:pass@pooler:6543/postgres")
     _install_fake_connect(monkeypatch, calls)
@@ -99,4 +73,21 @@ def test_get_connection_reconnects_when_closed(monkeypatch):
     conn2 = db_module.get_connection()
 
     assert conn1 is not conn2
+    assert conn2.closed == 0
     assert len(calls) == 2
+
+
+def test_concurrent_requests_do_not_share_a_connection(monkeypatch):
+    # api/index.py runs handlers in a threadpool, so two requests on one warm
+    # instance can interleave: A and B both get a connection, A finishes and
+    # calls conn.close(), then B runs its query. B must not be holding A's
+    # (now closed) connection.
+    calls = []
+    monkeypatch.setenv("DATABASE_URL", "postgresql://user:pass@pooler:6543/postgres")
+    _install_fake_connect(monkeypatch, calls)
+
+    conn_a = db_module.get_connection()
+    conn_b = db_module.get_connection()
+    conn_a.close()
+
+    assert conn_b.closed == 0
