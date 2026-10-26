@@ -2,11 +2,13 @@
 
 This document captures the major technical decisions behind the diet-tracker application, the context that informed each choice, and the trade-offs accepted. It serves as a reference for anyone onboarding to the project or evaluating the system's design.
 
+ADR-001 through ADR-013 describe the original AWS design. ADR-014 moves the app to Vercel and Supabase; superseded records are kept for history.
+
 ---
 
 ## ADR-001: Serverless Compute with AWS Lambda
 
-**Status:** Accepted
+**Status:** Superseded by [ADR-014](#adr-014-migrate-to-vercel-and-supabase) (previously: Accepted)
 
 **Context:** The application serves a small number of health-conscious users tracking daily dietary intake. Traffic is low and bursty — a few requests during meal times, near-zero overnight. Running a persistent server (EC2, ECS, EKS) would mean paying for idle capacity most of the day.
 
@@ -28,7 +30,7 @@ This document captures the major technical decisions behind the diet-tracker app
 
 ## ADR-002: PostgreSQL on RDS (Not DynamoDB)
 
-**Status:** Accepted
+**Status:** Accepted — updated by [ADR-014](#adr-014-migrate-to-vercel-and-supabase): Postgres stays; ADR-014 moves it from RDS to Supabase (transaction pooler, no automated backups on the free plan).
 
 **Context:** The data model is inherently relational — users have ingredients, ingredients compose meals, meals are logged by date, and summaries aggregate across these relationships. Queries like "total calories for user X on date Y" require joining meal_logs → meals → meal_ingredients → ingredients.
 
@@ -50,7 +52,7 @@ This document captures the major technical decisions behind the diet-tracker app
 
 ## ADR-003: Lambdas Run Outside the VPC
 
-**Status:** Accepted
+**Status:** Superseded by [ADR-014](#adr-014-migrate-to-vercel-and-supabase) (previously: Accepted)
 
 **Context:** Lambda functions inside a VPC require ENI (Elastic Network Interface) attachment, adding 1-10 seconds of cold start latency. RDS is inside a VPC but can be made publicly accessible with security group restrictions.
 
@@ -71,7 +73,7 @@ This document captures the major technical decisions behind the diet-tracker app
 
 ## ADR-004: Cognito with PKCE for Authentication
 
-**Status:** Accepted
+**Status:** Superseded by [ADR-014](#adr-014-migrate-to-vercel-and-supabase) (previously: Accepted)
 
 **Context:** The frontend is a public SPA (no server-side rendering), so it cannot securely store a client secret. The application needs user identity for data isolation — every query is scoped to the authenticated user's `cognito_user_id`.
 
@@ -116,7 +118,7 @@ This document captures the major technical decisions behind the diet-tracker app
 
 ## ADR-006: S3 + CloudFront for Frontend Hosting
 
-**Status:** Accepted
+**Status:** Superseded by [ADR-014](#adr-014-migrate-to-vercel-and-supabase) (previously: Accepted)
 
 **Context:** The frontend is a static SPA — a single `index.html` entry point plus bundled JS/CSS assets. It needs HTTPS, a custom domain (`diet-tracker.yixinx.com`), and reasonable global latency.
 
@@ -133,7 +135,7 @@ This document captures the major technical decisions behind the diet-tracker app
 
 ## ADR-007: GitHub Actions CI/CD with OIDC Authentication
 
-**Status:** Accepted
+**Status:** Superseded by [ADR-014](#adr-014-migrate-to-vercel-and-supabase) (previously: Accepted)
 
 **Context:** The project is hosted on GitHub. Deployments need to authenticate with AWS to update Lambda code, sync S3 buckets, and invalidate CloudFront caches. Storing long-lived AWS access keys as GitHub secrets is a security risk.
 
@@ -160,7 +162,7 @@ This document captures the major technical decisions behind the diet-tracker app
 
 ## ADR-008: Structured Logging and Custom CloudWatch Metrics
 
-**Status:** Accepted
+**Status:** Superseded by [ADR-014](#adr-014-migrate-to-vercel-and-supabase) (previously: Accepted)
 
 **Context:** Lambda functions log to CloudWatch Logs by default, but unstructured text logs are difficult to query and aggregate. The application needs visibility into request rates, latency distributions, error rates, and database performance.
 
@@ -177,7 +179,7 @@ This document captures the major technical decisions behind the diet-tracker app
 
 ## ADR-009: Batch Pre-computation for Daily Summaries
 
-**Status:** Accepted
+**Status:** Accepted — updated by [ADR-014](#adr-014-migrate-to-vercel-and-supabase): The batch is unchanged; ADR-014 replaces the EventBridge trigger with Vercel Cron.
 
 **Context:** The daily summary endpoint needs to calculate total calories, meal counts, and weekly aggregates. Computing these on every request requires joining multiple tables and aggregating across all meals for a given day/week.
 
@@ -195,7 +197,7 @@ This document captures the major technical decisions behind the diet-tracker app
 
 ## ADR-010: No Infrastructure-as-Code (Manual AWS Setup)
 
-**Status:** Accepted (with caveats)
+**Status:** Superseded by [ADR-014](#adr-014-migrate-to-vercel-and-supabase) (previously: Accepted (with caveats))
 
 **Context:** The application uses ~10 AWS services. Setting up IaC (CloudFormation, CDK, Terraform) for a personal project adds significant upfront effort and ongoing maintenance.
 
@@ -214,7 +216,7 @@ This document captures the major technical decisions behind the diet-tracker app
 
 ## ADR-011: User Isolation via Application-Layer Filtering
 
-**Status:** Accepted
+**Status:** Accepted — updated by [ADR-014](#adr-014-migrate-to-vercel-and-supabase): Unchanged; the `sub` now comes from Supabase Auth (ADR-014), and the Supabase Data API does not expose `public`, so the no-RLS decision still holds.
 
 **Context:** Multiple users share the same database. Each user should only see their own ingredients, meals, and logs.
 
@@ -247,7 +249,7 @@ This document captures the major technical decisions behind the diet-tracker app
 
 ## ADR-013: Shared Backend Infrastructure Across Environments
 
-**Status:** Accepted
+**Status:** Superseded by [ADR-014](#adr-014-migrate-to-vercel-and-supabase) (previously: Accepted)
 
 **Context:** A fully isolated staging environment would require duplicating the RDS instance (~$15/month), API Gateway stage, Lambda function aliases, and Cognito user pool. The CI/CD pipeline already separates environments at the GitHub Actions level (distinct environments, secrets, and approval gates), and the frontend has separate S3 buckets for staging and production.
 
@@ -264,6 +266,37 @@ This document captures the major technical decisions behind the diet-tracker app
 
 ---
 
+## ADR-014: Migrate to Vercel and Supabase
+
+**Status:** Accepted (2026-10)
+
+**Context:** The AWS stack cost about $17/month for a personal, low-traffic app: RDS after the free tier, a WAF web ACL on CloudFront, idle Elastic IPs and Secrets Manager. It was also hand-built with no IaC (ADR-010), so it was hard to reproduce or tear down cleanly. Vercel Hobby runs FastAPI as Python Functions and allows one daily cron; Supabase's free plan provides Postgres and Auth with the same bearer-JWT pattern the handlers already used.
+
+**Decision:** Move the whole app to Vercel and Supabase:
+- **Compute:** a single Vercel Python Function (`api/index.py`) with a FastAPI catch-all that builds the API Gateway-style event and calls the existing handlers unchanged. Replaces API Gateway and Lambda (ADR-001, ADR-003).
+- **Auth:** Supabase Auth (email + password via `supabase-js`). The API verifies access tokens with PyJWT against the project JWKS (asymmetric keys, audience `authenticated`). `cognito_user_id` is renamed `auth_user_id`. Replaces Cognito Hosted UI + PKCE (ADR-004).
+- **Frontend hosting:** Vercel static output from `frontend/dist`, custom domain via a Cloudflare CNAME to `cname.vercel-dns.com`. Replaces S3 + CloudFront (ADR-006).
+- **Data:** Supabase Postgres through the transaction pooler (port 6543) from `DATABASE_URL`; no Secrets Manager. Fresh database from `infra/sql/schema.sql`; no data migration. `public` is removed from the Data API's exposed schemas.
+- **Batch:** Vercel Cron calls `/api/cron/daily-summaries` daily, guarded by `CRON_SECRET`. Replaces EventBridge.
+- **CI/CD:** Vercel's Git integration deploys previews on PRs and production on `main`. GitHub Actions only runs tests; the OIDC deploy role, deploy workflows and AWS secrets go away (ADR-007). Previews share the one Supabase project, which keeps the shared-backend trade-off of ADR-013 without a staging stack.
+- **Observability:** metrics become structured log lines in Vercel logs; CloudWatch metrics, alarms and SNS are removed (ADR-008).
+- **Infrastructure:** all remaining configuration is `vercel.json`, `schema.sql`, and a short list of env vars and dashboard settings documented in the README (ADR-010).
+
+**Consequences:**
+- Running cost drops to $0/month; only the domain remains.
+- Handler code and its tests are unchanged apart from the user-id rename; the adapter has its own tests.
+- No alerting. Failures show up in Vercel's function logs and cron history only.
+- Supabase free has no automatic backups, and the project pauses after 7 days without database activity (the daily cron counts as activity).
+- No pre-production backend: previews write to production data, as before.
+- Hobby cron timing is imprecise within the scheduled hour, which is fine for a nightly batch.
+- Vendor coupling shifts from AWS to Vercel and Supabase; the handlers themselves stay platform-neutral behind the adapter.
+
+**Alternatives considered:**
+- *Keep Lambda/API Gateway/Cognito, drop only the paid pieces* — close to $0 but not $0 (Secrets Manager, eventually RDS or another database), and still a hand-built account with no IaC.
+- *Rewrite the handlers as native FastAPI routes* — cleaner long-term, but discards a tested dispatch layer for no user-visible gain.
+
+---
+
 ## Summary of Key Trade-offs
 
 | Decision | Optimized For | Accepted Risk |
@@ -277,3 +310,4 @@ This document captures the major technical decisions behind the diet-tracker app
 | No IaC | Fast setup | Config drift, manual disaster recovery |
 | Mock API for E2E | Fast, reliable tests | API contract drift risk |
 | Shared backend infra | Low AWS costs | No pre-production validation of deployments |
+| Vercel + Supabase (ADR-014, supersedes the AWS rows above) | $0 running cost, minimal ops | No alerting or backups, previews share production data |

@@ -281,7 +281,7 @@ class TestDetectAnomalies:
 
 class TestHandler:
     def test_handler_success(self, monkeypatch):
-        """Test successful EventBridge invocation."""
+        """Test successful scheduled invocation."""
         cursor = FakeCursor()
         conn = FakeConnection(cursor)
 

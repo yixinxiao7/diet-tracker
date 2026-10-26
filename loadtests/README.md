@@ -11,7 +11,7 @@ pip install locust
 ## Running locally (with web UI)
 
 ```bash
-locust -f loadtests/locustfile.py --host https://<your-staging-api-url>
+locust -f loadtests/locustfile.py --host https://diet-tracker.yixinx.com/api
 ```
 
 Then open http://localhost:8089, set the number of users and spawn rate, and start the test.
@@ -19,10 +19,10 @@ Then open http://localhost:8089, set the number of users and spawn rate, and sta
 ## Running headless (CI-friendly)
 
 ```bash
-export AUTH_TOKEN="<valid-cognito-id-token>"
+export AUTH_TOKEN="<valid-supabase-access-token>"
 
 locust -f loadtests/locustfile.py \
-    --host https://<your-staging-api-url> \
+    --host https://diet-tracker.yixinx.com/api \
     --headless \
     -u 10 \
     -r 2 \
@@ -34,10 +34,9 @@ This runs 10 concurrent users, spawning 2 per second, for 60 seconds. Results ar
 
 ## Authentication
 
-Set one of these environment variables before running:
+Set `AUTH_TOKEN` to a valid Supabase access token before running. Grab one from a signed-in session in browser dev tools (the `access_token` in the `sb-<ref>-auth-token` localStorage entry). The API verifies every token, so there is no bypass token.
 
-- `AUTH_TOKEN` — a valid Cognito `id_token` (use browser dev tools to grab one from a logged-in session)
-- `AUTH_BYPASS_TOKEN` — if the staging environment has `VITE_AUTH_BYPASS` enabled
+The host must include the `/api` prefix. A Vercel preview URL works too, but previews share the production Supabase project, so the test data lands in the real database (the test deletes what it creates).
 
 ## What it tests
 
