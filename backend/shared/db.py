@@ -1,43 +1,22 @@
 import os
 import psycopg2
 
-# Cached across warm serverless invocations
-_connection = None
-
-
-def _is_connection_healthy(conn):
-    """Check if the connection is still valid by running a simple query."""
-    try:
-        cur = conn.cursor()
-        cur.execute("SELECT 1")
-        cur.close()
-        return True
-    except Exception:
-        return False
-
 
 def get_connection():
-    global _connection
+    """Open a new connection for one request; the caller must close it.
 
-    # Check if existing connection is healthy
-    if _connection and _connection.closed == 0:
-        if _is_connection_healthy(_connection):
-            return _connection
-        # Connection is broken, close and recreate
-        try:
-            _connection.close()
-        except Exception:
-            pass
-        _connection = None
-
+    Connections are not cached at module level: api/index.py runs handlers
+    concurrently in a threadpool, and every handler closes its connection
+    when done, so a shared connection would be closed out from under any
+    request still using it. Supavisor (transaction pooler, port 6543) does
+    the pooling, so a per-request connect is cheap.
+    """
     # Supabase transaction pooler (port 6543) does not honor startup options
     # such as statement_timeout, so none are passed here.
-    _connection = psycopg2.connect(
+    return psycopg2.connect(
         os.environ["DATABASE_URL"],
         connect_timeout=5,
     )
-
-    return _connection
 
 
 def get_internal_user_id(conn, auth_user_id):

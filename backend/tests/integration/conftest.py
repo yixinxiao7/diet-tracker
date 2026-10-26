@@ -417,7 +417,6 @@ def mock_db_connection(mock_db, monkeypatch):
         return conn
 
     # Patch at the source module
-    monkeypatch.setattr(db_module, "_connection", None)
     monkeypatch.setattr(db_module, "get_connection", get_mock_connection)
 
     # Patch at all import locations
