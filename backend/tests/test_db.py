@@ -1,5 +1,3 @@
-import json
-
 from backend.shared import db as db_module
 from backend.shared.db import get_internal_user_id
 
@@ -28,30 +26,19 @@ class FakeConnection:
 
 def test_get_internal_user_id_found():
     conn = FakeConnection(row=(123,))
-    assert get_internal_user_id(conn, "cognito") == 123
+    assert get_internal_user_id(conn, "auth-user") == 123
 
 
 def test_get_internal_user_id_missing():
     conn = FakeConnection(row=None)
-    assert get_internal_user_id(conn, "cognito") is None
+    assert get_internal_user_id(conn, "auth-user") is None
 
 
-def test_get_db_secret_and_connection_cache(monkeypatch):
-    calls = {"secret": 0, "connect": 0}
-
-    class FakeBotoClient:
-        def get_secret_value(self, SecretId=None):
-            calls["secret"] += 1
-            return {"SecretString": json.dumps({
-                "host": "localhost",
-                "username": "user",
-                "password": "pass",
-                "port": 5432
-            })}
-
+def _install_fake_connect(monkeypatch, calls, healthy=True):
     class FakeHealthCursor:
         def execute(self, *args, **kwargs):
-            pass
+            if not healthy:
+                raise Exception("connection lost")
 
         def close(self):
             pass
@@ -63,20 +50,53 @@ def test_get_db_secret_and_connection_cache(monkeypatch):
         def cursor(self):
             return FakeHealthCursor()
 
-    def fake_connect(**kwargs):
-        calls["connect"] += 1
+        def close(self):
+            self.closed = 1
+
+    def fake_connect(*args, **kwargs):
+        calls.append((args, kwargs))
         return FakePsycopgConn()
 
-    monkeypatch.setenv("DB_SECRET_ARN", "arn:secret")
-    monkeypatch.setenv("DB_NAME", "db")
-    monkeypatch.setattr(db_module, "_secret_cache", None)
     monkeypatch.setattr(db_module, "_connection", None)
-    monkeypatch.setattr(db_module.boto3, "client", lambda *_: FakeBotoClient())
-    monkeypatch.setattr(db_module.psycopg2, "connect", lambda **kwargs: fake_connect(**kwargs))
+    monkeypatch.setattr(db_module.psycopg2, "connect", fake_connect)
+
+
+def test_get_connection_uses_database_url_and_caches(monkeypatch):
+    calls = []
+    monkeypatch.setenv("DATABASE_URL", "postgresql://user:pass@pooler:6543/postgres")
+    _install_fake_connect(monkeypatch, calls)
 
     conn1 = db_module.get_connection()
     conn2 = db_module.get_connection()
 
     assert conn1 is conn2
-    assert calls["secret"] == 1
-    assert calls["connect"] == 1
+    assert len(calls) == 1
+    args, kwargs = calls[0]
+    assert args == ("postgresql://user:pass@pooler:6543/postgres",)
+    # Transaction pooler does not honor startup options
+    assert "options" not in kwargs
+
+
+def test_get_connection_reconnects_when_unhealthy(monkeypatch):
+    calls = []
+    monkeypatch.setenv("DATABASE_URL", "postgresql://user:pass@pooler:6543/postgres")
+    _install_fake_connect(monkeypatch, calls, healthy=False)
+
+    conn1 = db_module.get_connection()
+    conn2 = db_module.get_connection()
+
+    assert conn1 is not conn2
+    assert len(calls) == 2
+
+
+def test_get_connection_reconnects_when_closed(monkeypatch):
+    calls = []
+    monkeypatch.setenv("DATABASE_URL", "postgresql://user:pass@pooler:6543/postgres")
+    _install_fake_connect(monkeypatch, calls)
+
+    conn1 = db_module.get_connection()
+    conn1.close()
+    conn2 = db_module.get_connection()
+
+    assert conn1 is not conn2
+    assert len(calls) == 2

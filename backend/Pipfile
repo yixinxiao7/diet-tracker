@@ -4,13 +4,15 @@ url = "https://pypi.org/simple"
 verify_ssl = true
 
 [packages]
-boto3 = "*"
+fastapi = "*"
+pyjwt = {extras = ["crypto"], version = "*"}
 psycopg2-binary = "*"
 
 [dev-packages]
 pytest = "*"
 pytest-mock = "*"
 pytest-cov = "*"
+httpx = "*"
 
 [requires]
 python_version = "3.12"

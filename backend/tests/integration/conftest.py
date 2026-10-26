@@ -49,7 +49,7 @@ class MockCursor:
             user_id = str(uuid.uuid4())
             self._db["users"][user_id] = {
                 "id": user_id,
-                "cognito_user_id": params[0],
+                "auth_user_id": params[0],
                 "email": params[1],
                 "created_at": datetime.now()
             }
@@ -107,10 +107,10 @@ class MockCursor:
         # Remove all spaces for easier pattern matching
         query_no_spaces = query_upper.replace(" ", "")
 
-        if "FROM USERS" in query_upper and "COGNITO_USER_ID" in query_upper:
-            cognito_id = params[0]
+        if "FROM USERS" in query_upper and "AUTH_USER_ID" in query_upper:
+            auth_id = params[0]
             for user in self._db["users"].values():
-                if user["cognito_user_id"] == cognito_id:
+                if user["auth_user_id"] == auth_id:
                     self._results = [(user["id"],)]
                     return
             self._results = []
@@ -418,7 +418,6 @@ def mock_db_connection(mock_db, monkeypatch):
 
     # Patch at the source module
     monkeypatch.setattr(db_module, "_connection", None)
-    monkeypatch.setattr(db_module, "_secret_cache", None)
     monkeypatch.setattr(db_module, "get_connection", get_mock_connection)
 
     # Patch at all import locations
@@ -465,7 +464,7 @@ def mock_event_factory():
         path_params=None,
         query_params=None,
         body=None,
-        cognito_user_id="test-cognito-user"
+        auth_user_id="test-auth-user"
     ):
         return {
             "httpMethod": method,
@@ -476,7 +475,7 @@ def mock_event_factory():
             "requestContext": {
                 "authorizer": {
                     "claims": {
-                        "sub": cognito_user_id,
+                        "sub": auth_user_id,
                         "email": "test@example.com"
                     }
                 }
@@ -490,19 +489,19 @@ def test_user(mock_db_connection):
     """Create a test user and return their IDs."""
     conn, mock_db = mock_db_connection
     user_id = str(uuid.uuid4())
-    cognito_id = f"test-cognito-{uuid.uuid4()}"
+    auth_id = f"test-auth-{uuid.uuid4()}"
     email = f"test-{uuid.uuid4()}@example.com"
 
     mock_db["users"][user_id] = {
         "id": user_id,
-        "cognito_user_id": cognito_id,
+        "auth_user_id": auth_id,
         "email": email,
         "created_at": datetime.now()
     }
 
     return {
         "id": user_id,
-        "cognito_user_id": cognito_id,
+        "auth_user_id": auth_id,
         "email": email
     }
 
@@ -512,19 +511,19 @@ def second_user(mock_db_connection):
     """Create a second test user for authorization tests."""
     conn, mock_db = mock_db_connection
     user_id = str(uuid.uuid4())
-    cognito_id = f"test-cognito-2-{uuid.uuid4()}"
+    auth_id = f"test-auth-2-{uuid.uuid4()}"
     email = f"test-2-{uuid.uuid4()}@example.com"
 
     mock_db["users"][user_id] = {
         "id": user_id,
-        "cognito_user_id": cognito_id,
+        "auth_user_id": auth_id,
         "email": email,
         "created_at": datetime.now()
     }
 
     return {
         "id": user_id,
-        "cognito_user_id": cognito_id,
+        "auth_user_id": auth_id,
         "email": email
     }
 
