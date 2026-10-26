@@ -1,13 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   getAuthConfigErrors,
-  getIdToken,
-  getStoredTokens,
-  getUserEmail,
-  handleAuthCallback,
-  login,
+  getSession,
   logout,
+  onAuthStateChange,
 } from './auth/auth'
+import AuthForm from './auth/AuthForm'
 import { apiDelete, apiGet, apiPost, apiPut } from './api/client'
 import IngredientCombobox from './IngredientCombobox'
 import './App.css'
@@ -103,64 +101,46 @@ function App() {
     [ingredients],
   )
 
+  const applySession = (session) => {
+    if (session) {
+      setAuthError('')
+      setUserEmail(session.user?.email || '')
+      setAuthStatus('authenticated')
+    } else {
+      setUserEmail('')
+      setAuthStatus('unauthenticated')
+    }
+  }
+
+  const handleLogout = async () => {
+    try {
+      await logout()
+    } catch {
+      // Clear the local view even if the network sign-out fails
+    }
+    applySession(null)
+  }
+
   useEffect(() => {
     let cancelled = false
 
-    const initAuth = async () => {
-      const applyAuthenticated = () => {
+    getSession()
+      .then((session) => {
+        if (!cancelled) applySession(session)
+      })
+      .catch((err) => {
         if (cancelled) return
-        setAuthStatus('authenticated')
-        setUserEmail(getUserEmail() || '')
-      }
-
-      const existingTokens = getStoredTokens()
-      if (existingTokens?.id_token) {
-        applyAuthenticated()
-      }
-
-      try {
-        const callback = await handleAuthCallback()
-        if (callback?.error && !cancelled) {
-          setAuthError(callback.error)
-        }
-        if (callback?.tokens && !cancelled) {
-          applyAuthenticated()
-          return
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setAuthError(err.message || 'Authentication failed')
-        }
-      }
-
-      const token = await getIdToken()
-      if (cancelled) return
-
-      if (token) {
-        applyAuthenticated()
-      } else {
-        // Check if there's a pending auth flow (another effect processing the code)
-        const pendingCode = new URLSearchParams(window.location.search).get('code')
-        if (pendingCode) {
-          // Wait for the other effect to complete the token exchange
-          for (let i = 0; i < 20; i++) {
-            await new Promise(resolve => setTimeout(resolve, 100))
-            if (cancelled) return
-            const tokens = getStoredTokens()
-            if (tokens?.id_token) {
-              applyAuthenticated()
-              return
-            }
-          }
-        }
+        setAuthError(err.message || 'Authentication failed')
         setAuthStatus('unauthenticated')
-      }
-    }
+      })
 
-    initAuth()
+    const unsubscribe = onAuthStateChange((session) => {
+      if (!cancelled) applySession(session)
+    })
 
     return () => {
       cancelled = true
+      unsubscribe()
     }
   }, [])
 
@@ -463,9 +443,7 @@ function App() {
           {authError && (
             <div className="alert error" role="alert">{authError}</div>
           )}
-          <button className="button primary login-cta" onClick={login}>
-            Sign in to get started
-          </button>
+          <AuthForm disabled={configErrors.length > 0} onSession={applySession} />
         </div>
       </div>
     )
@@ -483,7 +461,7 @@ function App() {
         </div>
         <div className="auth-card">
           <p className="meta-value">{userEmail || 'Signed in'}</p>
-          <button className="button ghost" onClick={logout}>
+          <button className="button ghost" onClick={handleLogout}>
             Log out
           </button>
         </div>

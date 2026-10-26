@@ -1,6 +1,6 @@
 import { getIdToken } from '../auth/auth'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
 
 async function parseJsonSafe(response) {
   const text = await response.text()
@@ -13,10 +13,6 @@ async function parseJsonSafe(response) {
 }
 
 export async function apiFetch(path, options = {}) {
-  if (!API_BASE_URL) {
-    throw new Error('Missing VITE_API_BASE_URL')
-  }
-
   const token = await getIdToken()
   if (!token) {
     throw new Error('Not authenticated')
