@@ -1,7 +1,9 @@
-import pytest
+import json
+import logging
 import time
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
+from backend.shared.logging import JSONFormatter
 from backend.shared.metrics import (
     put_metric,
     put_count,
@@ -10,45 +12,40 @@ from backend.shared.metrics import (
 )
 
 
+def _metric_records(caplog):
+    return [r for r in caplog.records if r.name == "backend.shared.metrics"]
+
+
 class TestMetrics:
-    """Test suite for CloudWatch metrics module."""
+    """Test suite for the log-only metrics module."""
 
-    def test_put_metric_success(self):
-        """Test that put_metric successfully pushes a metric to CloudWatch."""
-        with patch("backend.shared.metrics._cloudwatch_client") as mock_client:
-            mock_cw = MagicMock()
-            mock_client.return_value = mock_cw
+    def test_put_metric_logs_structured_fields(self, caplog):
+        """Test that put_metric emits a structured log line with the metric."""
+        with caplog.at_level(logging.INFO, logger="backend.shared.metrics"):
+            put_metric("TestMetric", 42.5, unit="Count", dimensions={"Type": "Test"})
 
-            # Reset the global client
-            import backend.shared.metrics as metrics_module
-            metrics_module._cloudwatch_client = None
+        records = _metric_records(caplog)
+        assert len(records) == 1
+        fields = records[0].extra_fields
+        assert fields["metric_namespace"] == "DietTracker"
+        assert fields["metric_name"] == "TestMetric"
+        assert fields["metric_value"] == 42.5
+        assert fields["metric_unit"] == "Count"
+        assert fields["metric_dimensions"] == {"Type": "Test"}
 
-            with patch("boto3.client") as mock_boto_client:
-                mock_boto_client.return_value = mock_cw
+    def test_put_metric_output_is_json(self, caplog):
+        """Test that the metric log line formats as JSON with the metric fields."""
+        with caplog.at_level(logging.INFO, logger="backend.shared.metrics"):
+            put_metric("JsonMetric", 1, unit="Count")
 
-                put_metric("TestMetric", 42.5, unit="Count", dimensions={"Type": "Test"})
-
-                # Verify put_metric_data was called with correct parameters
-                mock_cw.put_metric_data.assert_called_once()
-                call_args = mock_cw.put_metric_data.call_args
-
-                assert call_args.kwargs["Namespace"] == "DietTracker"
-                metric_data = call_args.kwargs["MetricData"][0]
-                assert metric_data["MetricName"] == "TestMetric"
-                assert metric_data["Value"] == 42.5
-                assert metric_data["Unit"] == "Count"
-                assert metric_data["Dimensions"] == [{"Name": "Type", "Value": "Test"}]
+        payload = json.loads(JSONFormatter().format(_metric_records(caplog)[-1]))
+        assert payload["message"] == "metric"
+        assert payload["metric_name"] == "JsonMetric"
 
     def test_put_metric_handles_exception(self):
         """Test that put_metric silently handles exceptions."""
-        with patch("boto3.client") as mock_boto_client:
-            mock_cw = MagicMock()
-            mock_cw.put_metric_data.side_effect = Exception("CloudWatch error")
-            mock_boto_client.return_value = mock_cw
-
-            # Reset the global client
-            import backend.shared.metrics as metrics_module
-            metrics_module._cloudwatch_client = None
+        with patch("backend.shared.metrics.logger") as mock_logger:
+            mock_logger.info.side_effect = Exception("logging error")
 
             # This should not raise an exception
             put_metric("FailingMetric", 100)
@@ -118,41 +115,13 @@ class TestMetrics:
             # Metric should still be published
             mock_put_latency.assert_called_once()
 
-    def test_put_metric_without_dimensions(self):
-        """Test that put_metric works without dimensions."""
-        with patch("boto3.client") as mock_boto_client:
-            mock_cw = MagicMock()
-            mock_boto_client.return_value = mock_cw
-
-            # Reset the global client
-            import backend.shared.metrics as metrics_module
-            metrics_module._cloudwatch_client = None
-
+    def test_put_metric_without_dimensions(self, caplog):
+        """Test that put_metric works without dimensions and defaults the unit."""
+        with caplog.at_level(logging.INFO, logger="backend.shared.metrics"):
             put_metric("SimpleMetric", 100)
 
-            mock_cw.put_metric_data.assert_called_once()
-            call_args = mock_cw.put_metric_data.call_args
-            metric_data = call_args.kwargs["MetricData"][0]
-
-            assert metric_data["MetricName"] == "SimpleMetric"
-            assert metric_data["Value"] == 100
-            assert metric_data["Unit"] == "None"
-            assert "Dimensions" not in metric_data
-
-    def test_put_metric_default_unit(self):
-        """Test that put_metric uses 'None' as default unit."""
-        with patch("boto3.client") as mock_boto_client:
-            mock_cw = MagicMock()
-            mock_boto_client.return_value = mock_cw
-
-            # Reset the global client
-            import backend.shared.metrics as metrics_module
-            metrics_module._cloudwatch_client = None
-
-            put_metric("MetricNoUnit", 42)
-
-            mock_cw.put_metric_data.assert_called_once()
-            call_args = mock_cw.put_metric_data.call_args
-            metric_data = call_args.kwargs["MetricData"][0]
-
-            assert metric_data["Unit"] == "None"
+        fields = _metric_records(caplog)[-1].extra_fields
+        assert fields["metric_name"] == "SimpleMetric"
+        assert fields["metric_value"] == 100
+        assert fields["metric_unit"] == "None"
+        assert "metric_dimensions" not in fields

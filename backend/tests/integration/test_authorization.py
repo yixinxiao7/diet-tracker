@@ -59,19 +59,19 @@ def user_b(mock_db_connection):
     """Create a second user (user B)."""
     conn, mock_db = mock_db_connection
     user_id = str(uuid.uuid4())
-    cognito_id = "user-b-cognito-id"
+    auth_id = "user-b-auth-id"
     email = "userb@example.com"
 
     mock_db["users"][user_id] = {
         "id": user_id,
-        "cognito_user_id": cognito_id,
+        "auth_user_id": auth_id,
         "email": email,
         "created_at": datetime.now()
     }
 
     return {
         "id": user_id,
-        "cognito_user_id": cognito_id,
+        "auth_user_id": auth_id,
         "email": email
     }
 
@@ -99,7 +99,7 @@ class TestIngredientAuthorization:
         event = mock_event_factory(
             method="GET",
             resource="/ingredients",
-            cognito_user_id=user_b["cognito_user_id"]
+            auth_user_id=user_b["auth_user_id"]
         )
 
         response = list_ingredients(event)
@@ -124,7 +124,7 @@ class TestIngredientAuthorization:
                 "calories_per_unit": 999,
                 "unit": "hacked"
             },
-            cognito_user_id=user_b["cognito_user_id"]
+            auth_user_id=user_b["auth_user_id"]
         )
 
         response = update_ingredient(event)
@@ -143,7 +143,7 @@ class TestIngredientAuthorization:
             method="DELETE",
             resource="/ingredients/{id}",
             path_params={"id": str(ingredient_id)},
-            cognito_user_id=user_b["cognito_user_id"]
+            auth_user_id=user_b["auth_user_id"]
         )
 
         response = delete_ingredient(event)
@@ -178,7 +178,7 @@ class TestMealAuthorization:
         event = mock_event_factory(
             method="GET",
             resource="/meals",
-            cognito_user_id=user_b["cognito_user_id"]
+            auth_user_id=user_b["auth_user_id"]
         )
 
         response = list_meals(event)
@@ -198,7 +198,7 @@ class TestMealAuthorization:
             method="GET",
             resource="/meals/{id}",
             path_params={"id": str(user_a_data["meal"]["id"])},
-            cognito_user_id=user_b["cognito_user_id"]
+            auth_user_id=user_b["auth_user_id"]
         )
 
         response = get_meal(event)
@@ -231,7 +231,7 @@ class TestMealAuthorization:
                     {"ingredient_id": ing_id, "quantity": 1}
                 ]
             },
-            cognito_user_id=user_b["cognito_user_id"]
+            auth_user_id=user_b["auth_user_id"]
         )
 
         response = update_meal(event)
@@ -249,7 +249,7 @@ class TestMealAuthorization:
             method="DELETE",
             resource="/meals/{id}",
             path_params={"id": str(meal_id)},
-            cognito_user_id=user_b["cognito_user_id"]
+            auth_user_id=user_b["auth_user_id"]
         )
 
         response = delete_meal(event)
@@ -272,7 +272,7 @@ class TestMealAuthorization:
                     {"ingredient_id": str(user_a_data["ingredient"]["id"]), "quantity": 1}
                 ]
             },
-            cognito_user_id=user_b["cognito_user_id"]
+            auth_user_id=user_b["auth_user_id"]
         )
 
         response = create_meal(event)
@@ -316,7 +316,7 @@ class TestMealLogAuthorization:
         event = mock_event_factory(
             method="GET",
             resource="/meal-logs",
-            cognito_user_id=user_b["cognito_user_id"]
+            auth_user_id=user_b["auth_user_id"]
         )
 
         response = list_meal_logs(event)
@@ -339,7 +339,7 @@ class TestMealLogAuthorization:
             method="DELETE",
             resource="/meal-logs/{id}",
             path_params={"id": str(log_id)},
-            cognito_user_id=user_b["cognito_user_id"]
+            auth_user_id=user_b["auth_user_id"]
         )
 
         response = delete_meal_log(event)
@@ -361,7 +361,7 @@ class TestMealLogAuthorization:
                 "date": date.today().isoformat(),
                 "quantity": 1
             },
-            cognito_user_id=user_b["cognito_user_id"]
+            auth_user_id=user_b["auth_user_id"]
         )
 
         response = create_meal_log(event)
@@ -407,7 +407,7 @@ class TestSummaryAuthorization:
             method="GET",
             resource="/daily-summary",
             query_params={"date": today.isoformat()},
-            cognito_user_id=user_b["cognito_user_id"]
+            auth_user_id=user_b["auth_user_id"]
         )
 
         response = get_daily_summary(event)
@@ -450,7 +450,7 @@ class TestSummaryAuthorization:
             method="GET",
             resource="/daily-summary",
             query_params={"from": today.isoformat(), "to": today.isoformat()},
-            cognito_user_id=user_b["cognito_user_id"]
+            auth_user_id=user_b["auth_user_id"]
         )
 
         response = get_range_summary(event)

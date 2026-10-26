@@ -1,5 +1,7 @@
 # Code Audit Recommendations
 
+> **Note:** This audit predates the move to Vercel and Supabase ([ADR-014](docs/architecture-decisions.md#adr-014-migrate-to-vercel-and-supabase)). Items about RDS, API Gateway, Cognito, Secrets Manager, CloudWatch and the AWS deploy workflows no longer apply; those services and workflows are gone. The `statement_timeout` startup option was also dropped from `db.py` because Supabase's transaction pooler does not honor it, so that item is open again. Request size limits and rate limiting are now Vercel's (platform-level body limit, no per-route throttling).
+
 ## Critical Priority (Fix Immediately)
 
 - [x] **Cross-user ingredient deletion vulnerability** - `backend/lambdas/meals/ingredients.py:172` - Fixed: cascade check query now verifies ingredient ownership via JOIN

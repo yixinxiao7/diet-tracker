@@ -23,7 +23,7 @@ def create_meal_log(event):
       "quantity": 1
     }
     """
-    cognito_user_id = get_user_id(event)
+    auth_user_id = get_user_id(event)
     try:
         body = json.loads(event.get("body") or "{}")
     except json.JSONDecodeError:
@@ -46,7 +46,7 @@ def create_meal_log(event):
         return response(400, {"error": quantity_error})
 
     conn = get_connection()
-    user_id = get_internal_user_id(conn, cognito_user_id)
+    user_id = get_internal_user_id(conn, auth_user_id)
     if not user_id:
         conn.close()
         return response(404, {"error": "User not found"})
@@ -71,7 +71,7 @@ def create_meal_log(event):
         log_id = cur.fetchone()[0]
         conn.commit()
 
-        logger.info("Created meal log", extra={"user_id": cognito_user_id, "meal_log_id": log_id})
+        logger.info("Created meal log", extra={"user_id": auth_user_id, "meal_log_id": log_id})
         return response(201, {
             "id": log_id,
             "meal_id": meal_id,
@@ -80,7 +80,7 @@ def create_meal_log(event):
         })
     except Exception:
         conn.rollback()
-        logger.exception("Failed to create meal log", extra={"user_id": cognito_user_id})
+        logger.exception("Failed to create meal log", extra={"user_id": auth_user_id})
         return response(500, {"error": "Failed to create meal log"})
     finally:
         cur.close()
@@ -91,7 +91,7 @@ def list_meal_logs(event):
     """
     GET /meal-logs?from=YYYY-MM-DD&to=YYYY-MM-DD
     """
-    cognito_user_id = get_user_id(event)
+    auth_user_id = get_user_id(event)
     params = event.get("queryStringParameters") or {}
 
     date_from = params.get("from")
@@ -110,7 +110,7 @@ def list_meal_logs(event):
         return response(400, {"error": "Invalid date format"})
 
     conn = get_connection()
-    user_id = get_internal_user_id(conn, cognito_user_id)
+    user_id = get_internal_user_id(conn, auth_user_id)
     if not user_id:
         conn.close()
         return response(404, {"error": "User not found"})
@@ -147,7 +147,7 @@ def list_meal_logs(event):
             "meal_logs": meal_logs
         })
     except Exception:
-        logger.exception("Failed to list meal logs", extra={"user_id": cognito_user_id})
+        logger.exception("Failed to list meal logs", extra={"user_id": auth_user_id})
         return response(500, {"error": "Failed to list meal logs"})
     finally:
         cur.close()
@@ -158,13 +158,13 @@ def delete_meal_log(event):
     """
     DELETE /meal-logs/{id}
     """
-    cognito_user_id = get_user_id(event)
+    auth_user_id = get_user_id(event)
     log_id = get_path_param(event, "id")
     if not is_valid_uuid(log_id):
         return response(400, {"error": "Invalid ID format"})
 
     conn = get_connection()
-    user_id = get_internal_user_id(conn, cognito_user_id)
+    user_id = get_internal_user_id(conn, auth_user_id)
     if not user_id:
         conn.close()
         return response(404, {"error": "User not found"})
@@ -181,11 +181,11 @@ def delete_meal_log(event):
         if deleted == 0:
             return response(404, {"error": "Meal log not found"})
 
-        logger.info("Deleted meal log", extra={"user_id": cognito_user_id, "meal_log_id": log_id})
+        logger.info("Deleted meal log", extra={"user_id": auth_user_id, "meal_log_id": log_id})
         return response(204, None)
     except Exception:
         conn.rollback()
-        logger.exception("Failed to delete meal log", extra={"user_id": cognito_user_id, "meal_log_id": log_id})
+        logger.exception("Failed to delete meal log", extra={"user_id": auth_user_id, "meal_log_id": log_id})
         return response(500, {"error": "Failed to delete meal log"})
     finally:
         cur.close()

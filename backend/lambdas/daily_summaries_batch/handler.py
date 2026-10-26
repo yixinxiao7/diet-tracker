@@ -11,7 +11,7 @@ logger = get_logger(__name__)
 
 def handler(event, context):
     """
-    EventBridge scheduled invocation handler.
+    Scheduled batch handler, called daily by Vercel Cron via /api/cron/daily-summaries.
 
     Processes daily batch computations:
     1. Compute daily summaries

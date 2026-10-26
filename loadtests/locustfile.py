@@ -1,22 +1,21 @@
 """
 Locust load test for the diet-tracker API.
 
-Usage (targeting staging):
+Usage (targeting a deployment; previews work too):
     pip install locust
-    locust -f loadtests/locustfile.py --host https://<staging-api-url>
+    locust -f loadtests/locustfile.py --host https://diet-tracker.yixinx.com/api
 
 Then open http://localhost:8089 and configure users + spawn rate.
 
 For headless runs (e.g., CI):
     locust -f loadtests/locustfile.py \
-        --host https://<staging-api-url> \
+        --host https://diet-tracker.yixinx.com/api \
         --headless -u 10 -r 2 -t 60s \
         --csv=loadtests/results
 
 Environment variables:
-    LOCUST_HOST          API base URL (alternative to --host)
-    AUTH_TOKEN           Valid Cognito id_token for authenticated requests
-    AUTH_BYPASS_TOKEN    If the staging API accepts bypass tokens, set this
+    LOCUST_HOST          API base URL including /api (alternative to --host)
+    AUTH_TOKEN           Valid Supabase access token for authenticated requests
 """
 
 import json
@@ -68,7 +67,7 @@ class DietTrackerUser(HttpUser):
 
     def on_start(self):
         """Set up auth headers and bootstrap the user."""
-        token = os.environ.get("AUTH_TOKEN") or os.environ.get("AUTH_BYPASS_TOKEN")
+        token = os.environ.get("AUTH_TOKEN")
         if token:
             token = token.strip()
             self.client.headers.update({"Authorization": f"Bearer {token}"})

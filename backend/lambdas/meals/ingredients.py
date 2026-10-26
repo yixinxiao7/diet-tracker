@@ -16,7 +16,7 @@ logger = get_logger(__name__)
 
 
 def create_ingredient(event):
-    cognito_user_id = get_user_id(event)
+    auth_user_id = get_user_id(event)
     try:
         body = json.loads(event.get("body") or "{}")
     except json.JSONDecodeError:
@@ -42,7 +42,7 @@ def create_ingredient(event):
         return response(400, {"error": calories_error})
 
     conn = get_connection()
-    user_id = get_internal_user_id(conn, cognito_user_id)
+    user_id = get_internal_user_id(conn, auth_user_id)
     if not user_id:
         conn.close()
         return response(404, {"error": "User not found"})
@@ -71,7 +71,7 @@ def create_ingredient(event):
     })
 
 def list_ingredients(event):
-    cognito_user_id = get_user_id(event)
+    auth_user_id = get_user_id(event)
     params = event.get("queryStringParameters") or {}
     try:
         # Default 50, max 100 items
@@ -83,7 +83,7 @@ def list_ingredients(event):
         return response(400, {"error": "Invalid pagination parameters"})
 
     conn = get_connection()
-    user_id = get_internal_user_id(conn, cognito_user_id)
+    user_id = get_internal_user_id(conn, auth_user_id)
     if not user_id:
         conn.close()
         return response(404, {"error": "User not found"})
@@ -116,7 +116,7 @@ def list_ingredients(event):
     return response(200, {"ingredients": ingredients})
 
 def update_ingredient(event):
-    cognito_user_id = get_user_id(event)
+    auth_user_id = get_user_id(event)
     ingredient_id = get_path_param(event, "id")
     if not is_valid_uuid(ingredient_id):
         return response(400, {"error": "Invalid ID format"})
@@ -146,7 +146,7 @@ def update_ingredient(event):
         return response(400, {"error": calories_error})
 
     conn = get_connection()
-    user_id = get_internal_user_id(conn, cognito_user_id)
+    user_id = get_internal_user_id(conn, auth_user_id)
     if not user_id:
         conn.close()
         return response(404, {"error": "User not found"})
@@ -171,7 +171,7 @@ def update_ingredient(event):
     if not row:
         return response(404, {"error": "Ingredient not found"})
 
-    logger.info("Updated ingredient", extra={"user_id": cognito_user_id, "ingredient_id": ingredient_id})
+    logger.info("Updated ingredient", extra={"user_id": auth_user_id, "ingredient_id": ingredient_id})
     return response(200, {
         "id": ingredient_id,
         "name": name,
@@ -180,7 +180,7 @@ def update_ingredient(event):
     })
 
 def delete_ingredient(event):
-    cognito_user_id = get_user_id(event)
+    auth_user_id = get_user_id(event)
     ingredient_id = get_path_param(event, "id")
     if not is_valid_uuid(ingredient_id):
         return response(400, {"error": "Invalid ID format"})
@@ -189,7 +189,7 @@ def delete_ingredient(event):
     force = str(params.get("force", "false")).lower() in ("1", "true", "yes")
 
     conn = get_connection()
-    user_id = get_internal_user_id(conn, cognito_user_id)
+    user_id = get_internal_user_id(conn, auth_user_id)
     if not user_id:
         conn.close()
         return response(404, {"error": "User not found"})
@@ -225,5 +225,5 @@ def delete_ingredient(event):
     if deleted == 0:
         return response(404, {"error": "Ingredient not found"})
 
-    logger.info("Deleted ingredient", extra={"user_id": cognito_user_id, "ingredient_id": ingredient_id})
+    logger.info("Deleted ingredient", extra={"user_id": auth_user_id, "ingredient_id": ingredient_id})
     return response(204, None)

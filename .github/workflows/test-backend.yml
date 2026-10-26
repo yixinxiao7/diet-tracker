@@ -6,12 +6,18 @@ on:
       - main
     paths:
       - "backend/**"
+      - "api/**"
+      - "requirements.txt"
+      - "vercel.json"
       - ".github/workflows/test-backend.yml"
   push:
     branches:
       - main
     paths:
       - "backend/**"
+      - "api/**"
+      - "requirements.txt"
+      - "vercel.json"
       - ".github/workflows/test-backend.yml"
 
 jobs:

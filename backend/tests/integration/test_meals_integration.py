@@ -26,7 +26,7 @@ class TestCreateMeal:
                     {"ingredient_id": str(test_ingredient["id"]), "quantity": 2}
                 ]
             },
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = create_meal(event)
@@ -74,7 +74,7 @@ class TestCreateMeal:
                     {"ingredient_id": str(ing_b), "quantity": 3}
                 ]
             },
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = create_meal(event)
@@ -94,7 +94,7 @@ class TestCreateMeal:
                     {"ingredient_id": str(test_ingredient["id"]), "quantity": 1}
                 ]
             },
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = create_meal(event)
@@ -113,7 +113,7 @@ class TestCreateMeal:
                 "name": "Empty Meal",
                 "ingredients": []
             },
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = create_meal(event)
@@ -135,7 +135,7 @@ class TestCreateMeal:
                     {"ingredient_id": str(test_ingredient["id"]), "quantity": 2}
                 ]
             },
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = create_meal(event)
@@ -156,7 +156,7 @@ class TestCreateMeal:
                     {"ingredient_id": "123e4567-e89b-12d3-a456-426614174000", "quantity": 1}
                 ]
             },
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = create_meal(event)
@@ -177,7 +177,7 @@ class TestCreateMeal:
                     {"ingredient_id": str(test_ingredient["id"]), "quantity": 0}
                 ]
             },
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = create_meal(event)
@@ -198,7 +198,7 @@ class TestCreateMeal:
                     {"ingredient_id": str(test_ingredient["id"]), "quantity": 20000}
                 ]
             },
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = create_meal(event)
@@ -217,7 +217,7 @@ class TestListMeals:
         event = mock_event_factory(
             method="GET",
             resource="/meals",
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = list_meals(event)
@@ -232,7 +232,7 @@ class TestListMeals:
         event = mock_event_factory(
             method="GET",
             resource="/meals",
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = list_meals(event)
@@ -263,7 +263,7 @@ class TestListMeals:
             method="GET",
             resource="/meals",
             query_params={"limit": "3", "offset": "1"},
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = list_meals(event)
@@ -283,7 +283,7 @@ class TestGetMeal:
             method="GET",
             resource="/meals/{id}",
             path_params={"id": str(test_meal["id"])},
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = get_meal(event)
@@ -302,7 +302,7 @@ class TestGetMeal:
             method="GET",
             resource="/meals/{id}",
             path_params={"id": "123e4567-e89b-12d3-a456-426614174000"},
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = get_meal(event)
@@ -316,7 +316,7 @@ class TestGetMeal:
             method="GET",
             resource="/meals/{id}",
             path_params={"id": "invalid-uuid"},
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = get_meal(event)
@@ -340,7 +340,7 @@ class TestUpdateMeal:
                     {"ingredient_id": str(test_ingredient["id"]), "quantity": 3}
                 ]
             },
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = update_meal(event)
@@ -363,7 +363,7 @@ class TestUpdateMeal:
                     {"ingredient_id": str(test_ingredient["id"]), "quantity": 1}
                 ]
             },
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = update_meal(event)
@@ -384,7 +384,7 @@ class TestUpdateMeal:
                     {"ingredient_id": str(test_ingredient["id"]), "quantity": 2}
                 ]
             },
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = update_meal(event)
@@ -418,7 +418,7 @@ class TestDeleteMeal:
             method="DELETE",
             resource="/meals/{id}",
             path_params={"id": str(meal_id)},
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = delete_meal(event)
@@ -438,7 +438,7 @@ class TestDeleteMeal:
             method="DELETE",
             resource="/meals/{id}",
             path_params={"id": "123e4567-e89b-12d3-a456-426614174000"},
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = delete_meal(event)
@@ -460,7 +460,7 @@ class TestDeleteMeal:
             method="DELETE",
             resource="/meals/{id}",
             path_params={"id": str(meal_id)},
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = delete_meal(event)
