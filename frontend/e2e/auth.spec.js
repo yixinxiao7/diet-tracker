@@ -24,3 +24,16 @@ test('log out shows the sign-in form and signing in returns to the app', async (
 
   await expect(page.getByRole('button', { name: 'Log out' })).toBeVisible()
 })
+
+test('log out resets the signed-in view', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('tab', { name: 'Summary' }).click()
+  await expect(page.getByRole('tab', { name: 'Summary' })).toHaveAttribute('aria-selected', 'true')
+
+  await page.getByRole('button', { name: 'Log out' }).click()
+  await page.getByLabel('Email').fill('test@example.com')
+  await page.getByLabel('Password').fill('password123')
+  await page.getByRole('button', { name: 'Sign in' }).click()
+
+  await expect(page.getByRole('tab', { name: 'Ingredients' })).toHaveAttribute('aria-selected', 'true')
+})

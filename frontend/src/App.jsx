@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   getAuthConfigErrors,
   getSession,
@@ -101,7 +101,43 @@ function App() {
     [ingredients],
   )
 
+  const sessionUserRef = useRef(null)
+
+  // Drops everything loaded for the previous user so a different account
+  // signing in on the same tab never sees it.
+  const resetUserData = () => {
+    const today = formatDateInput(new Date())
+    setActiveTab('ingredients')
+    setIngredients([])
+    setIngredientsError('')
+    setIngredientForm({ name: '', calories: '', servingSize: '', unit: '' })
+    setMeals([])
+    setMealsError('')
+    setMealDraft({ name: '', items: [] })
+    setMealItemDraft({ ingredientId: '', quantity: '' })
+    setSelectedMealId('')
+    setSelectedMeal(null)
+    setMealDetailError('')
+    setMealLogs([])
+    setLogsError('')
+    setLogForm({ mealId: '', date: today, quantity: '1' })
+    setDailyDate(today)
+    setDailySummary(null)
+    setDailyError('')
+    setRangeFrom(today)
+    setRangeTo(today)
+    setRangeSummary([])
+    setRangeError('')
+    setSubmitting('')
+  }
+
   const applySession = (session) => {
+    const userKey = session ? session.user?.id || session.user?.email || '' : null
+    if (sessionUserRef.current !== null && sessionUserRef.current !== userKey) {
+      resetUserData()
+    }
+    sessionUserRef.current = userKey
+
     if (session) {
       setAuthError('')
       setUserEmail(session.user?.email || '')
@@ -142,6 +178,8 @@ function App() {
       cancelled = true
       unsubscribe()
     }
+    // Subscribe once on mount; applySession only touches state setters and a ref.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
@@ -162,7 +200,8 @@ function App() {
     }
 
     initUserData()
-  }, [authStatus])
+    // userEmail also changes when another account signs in without a sign-out
+  }, [authStatus, userEmail])
 
   const loadIngredients = async () => {
     setIngredientsLoading(true)

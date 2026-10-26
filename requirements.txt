@@ -1,3 +1,4 @@
-fastapi
-psycopg2-binary
-pyjwt[crypto]
+# Vercel installs this for api/index.py. Keep versions in sync with backend/Pipfile.lock.
+fastapi==0.162.0
+psycopg2-binary==2.9.13
+pyjwt[crypto]==2.15.1
