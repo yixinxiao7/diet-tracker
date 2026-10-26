@@ -1,25 +1,19 @@
 """
-CloudWatch custom metrics for the DietTracker application.
+Log-only custom metrics for the DietTracker application.
+
+Each metric is emitted as a structured JSON log line (see shared/logging.py),
+which lands in the platform's function logs.
 Namespace: DietTracker
 """
 import time
 from contextlib import contextmanager
 from typing import Optional, Dict
 
-_cloudwatch_client = None
+from backend.shared.logging import get_logger
 
+NAMESPACE = "DietTracker"
 
-def _get_cloudwatch_client():
-    """Lazy-initialize CloudWatch client."""
-    global _cloudwatch_client
-    if _cloudwatch_client is None:
-        try:
-            import boto3
-            _cloudwatch_client = boto3.client("cloudwatch")
-        except Exception:
-            # Silently fail if boto3 is not available or credentials are missing
-            pass
-    return _cloudwatch_client
+logger = get_logger(__name__)
 
 
 def put_metric(
@@ -29,36 +23,28 @@ def put_metric(
     dimensions: Optional[Dict[str, str]] = None,
 ) -> None:
     """
-    Push a single metric to CloudWatch under the DietTracker namespace.
+    Emit a single metric as a structured log line under the DietTracker namespace.
 
     Args:
         metric_name: Name of the metric
         value: Numeric value of the metric
-        unit: CloudWatch unit (e.g., "Count", "Milliseconds", "None"). Default: "None"
+        unit: Unit (e.g., "Count", "Milliseconds", "None"). Default: "None"
         dimensions: Optional dict of dimension names to values
 
     Silently handles exceptions to ensure metrics never crash the app.
     """
     try:
-        client = _get_cloudwatch_client()
-        if client is None:
-            return
-
-        metric_data = {
-            "MetricName": metric_name,
-            "Value": value,
-            "Unit": unit,
+        fields = {
+            "metric_namespace": NAMESPACE,
+            "metric_name": metric_name,
+            "metric_value": value,
+            "metric_unit": unit,
         }
 
         if dimensions:
-            metric_data["Dimensions"] = [
-                {"Name": k, "Value": str(v)} for k, v in dimensions.items()
-            ]
+            fields["metric_dimensions"] = {k: str(v) for k, v in dimensions.items()}
 
-        client.put_metric_data(
-            Namespace="DietTracker",
-            MetricData=[metric_data],
-        )
+        logger.info("metric", extra=fields)
     except Exception:
         # Silently fail - metrics should never crash the application
         pass
@@ -66,7 +52,7 @@ def put_metric(
 
 def put_count(metric_name: str, dimensions: Optional[Dict[str, str]] = None) -> None:
     """
-    Convenience function to push a count metric (value=1, unit=Count).
+    Convenience function to emit a count metric (value=1, unit=Count).
 
     Args:
         metric_name: Name of the metric
@@ -81,7 +67,7 @@ def put_latency(
     dimensions: Optional[Dict[str, str]] = None,
 ) -> None:
     """
-    Convenience function to push a latency metric.
+    Convenience function to emit a latency metric.
 
     Args:
         metric_name: Name of the metric
@@ -94,10 +80,10 @@ def put_latency(
 @contextmanager
 def timer(metric_name: str, dimensions: Optional[Dict[str, str]] = None):
     """
-    Context manager that measures elapsed time and publishes it as a metric.
+    Context manager that measures elapsed time and emits it as a metric.
 
     Args:
-        metric_name: Name of the metric to publish
+        metric_name: Name of the metric to emit
         dimensions: Optional dict of dimension names to values
 
     Usage:

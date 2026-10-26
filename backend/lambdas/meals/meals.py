@@ -14,8 +14,8 @@ from backend.shared.validation import (
 logger = get_logger(__name__)
 
 
-def _get_user_id_or_404(conn, cognito_user_id):
-    user_id = get_internal_user_id(conn, cognito_user_id)
+def _get_user_id_or_404(conn, auth_user_id):
+    user_id = get_internal_user_id(conn, auth_user_id)
     if not user_id:
         conn.close()
         return None, response(404, {"error": "User not found"})
@@ -35,7 +35,7 @@ def _load_ingredient_calories(cur, user_id, ingredient_ids):
 
 
 def create_meal(event):
-    cognito_user_id = get_user_id(event)
+    auth_user_id = get_user_id(event)
     try:
         body = json.loads(event.get("body") or "{}")
     except json.JSONDecodeError:
@@ -53,7 +53,7 @@ def create_meal(event):
         return response(400, {"error": "At least one ingredient is required"})
 
     conn = get_connection()
-    user_id, error_response = _get_user_id_or_404(conn, cognito_user_id)
+    user_id, error_response = _get_user_id_or_404(conn, auth_user_id)
     if error_response:
         return error_response
 
@@ -102,7 +102,7 @@ def create_meal(event):
             [(meal_id, item["ingredient_id"], item["quantity"]) for item in ingredients]
         )
         conn.commit()
-        logger.info("Created meal", extra={"user_id": cognito_user_id, "meal_id": meal_id})
+        logger.info("Created meal", extra={"user_id": auth_user_id, "meal_id": meal_id})
 
         return response(201, {
             "id": meal_id,
@@ -111,14 +111,14 @@ def create_meal(event):
         })
     except Exception:
         conn.rollback()
-        logger.exception("Failed to create meal", extra={"user_id": cognito_user_id})
+        logger.exception("Failed to create meal", extra={"user_id": auth_user_id})
         return response(500, {"error": "Failed to create meal"})
     finally:
         cur.close()
         conn.close()
 
 def list_meals(event):
-    cognito_user_id = get_user_id(event)
+    auth_user_id = get_user_id(event)
     params = event.get("queryStringParameters") or {}
     try:
         # Default 50, max 100 items
@@ -130,7 +130,7 @@ def list_meals(event):
         return response(400, {"error": "Invalid pagination parameters"})
 
     conn = get_connection()
-    user_id, error_response = _get_user_id_or_404(conn, cognito_user_id)
+    user_id, error_response = _get_user_id_or_404(conn, auth_user_id)
     if error_response:
         return error_response
 
@@ -162,13 +162,13 @@ def list_meals(event):
     return response(200, {"meals": meals})
 
 def get_meal(event):
-    cognito_user_id = get_user_id(event)
+    auth_user_id = get_user_id(event)
     meal_id = get_path_param(event, "id")
     if not is_valid_uuid(meal_id):
         return response(400, {"error": "Invalid ID format"})
 
     conn = get_connection()
-    user_id, error_response = _get_user_id_or_404(conn, cognito_user_id)
+    user_id, error_response = _get_user_id_or_404(conn, auth_user_id)
     if error_response:
         return error_response
 
@@ -224,7 +224,7 @@ def get_meal(event):
     return response(200, meal)
 
 def update_meal(event):
-    cognito_user_id = get_user_id(event)
+    auth_user_id = get_user_id(event)
     meal_id = get_path_param(event, "id")
     if not is_valid_uuid(meal_id):
         return response(400, {"error": "Invalid ID format"})
@@ -246,7 +246,7 @@ def update_meal(event):
         return response(400, {"error": "At least one ingredient is required"})
 
     conn = get_connection()
-    user_id, error_response = _get_user_id_or_404(conn, cognito_user_id)
+    user_id, error_response = _get_user_id_or_404(conn, auth_user_id)
     if error_response:
         return error_response
 
@@ -302,7 +302,7 @@ def update_meal(event):
             [(meal_id, item["ingredient_id"], item["quantity"]) for item in ingredients]
         )
         conn.commit()
-        logger.info("Updated meal", extra={"user_id": cognito_user_id, "meal_id": meal_id})
+        logger.info("Updated meal", extra={"user_id": auth_user_id, "meal_id": meal_id})
 
         return response(200, {
             "id": meal_id,
@@ -311,20 +311,20 @@ def update_meal(event):
         })
     except Exception:
         conn.rollback()
-        logger.exception("Failed to update meal", extra={"user_id": cognito_user_id, "meal_id": meal_id})
+        logger.exception("Failed to update meal", extra={"user_id": auth_user_id, "meal_id": meal_id})
         return response(500, {"error": "Failed to update meal"})
     finally:
         cur.close()
         conn.close()
 
 def delete_meal(event):
-    cognito_user_id = get_user_id(event)
+    auth_user_id = get_user_id(event)
     meal_id = get_path_param(event, "id")
     if not is_valid_uuid(meal_id):
         return response(400, {"error": "Invalid ID format"})
 
     conn = get_connection()
-    user_id, error_response = _get_user_id_or_404(conn, cognito_user_id)
+    user_id, error_response = _get_user_id_or_404(conn, auth_user_id)
     if error_response:
         return error_response
 
@@ -343,5 +343,5 @@ def delete_meal(event):
     if deleted == 0:
         return response(404, {"error": "Meal not found"})
 
-    logger.info("Deleted meal", extra={"user_id": cognito_user_id, "meal_id": meal_id})
+    logger.info("Deleted meal", extra={"user_id": auth_user_id, "meal_id": meal_id})
     return response(204, None)

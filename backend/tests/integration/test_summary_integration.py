@@ -20,7 +20,7 @@ class TestGetDailySummary:
             method="GET",
             resource="/daily-summary",
             query_params={"date": today},
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = get_daily_summary(event)
@@ -58,7 +58,7 @@ class TestGetDailySummary:
             method="GET",
             resource="/daily-summary",
             query_params={"date": today.isoformat()},
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = get_daily_summary(event)
@@ -74,7 +74,7 @@ class TestGetDailySummary:
             method="GET",
             resource="/daily-summary",
             query_params={},
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = get_daily_summary(event)
@@ -90,7 +90,7 @@ class TestGetDailySummary:
             method="GET",
             resource="/daily-summary",
             query_params={"date": "01-15-2024"},
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = get_daily_summary(event)
@@ -106,7 +106,7 @@ class TestGetDailySummary:
             method="GET",
             resource="/daily-summary",
             query_params={"date": date.today().isoformat()},
-            cognito_user_id="non-existent-user"
+            auth_user_id="non-existent-user"
         )
 
         response = get_daily_summary(event)
@@ -128,7 +128,7 @@ class TestGetRangeSummary:
             method="GET",
             resource="/daily-summary",
             query_params={"from": from_date, "to": to_date},
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = get_range_summary(event)
@@ -171,7 +171,7 @@ class TestGetRangeSummary:
             method="GET",
             resource="/daily-summary",
             query_params={"from": from_date, "to": to_date},
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = get_range_summary(event)
@@ -212,7 +212,7 @@ class TestGetRangeSummary:
             method="GET",
             resource="/daily-summary",
             query_params={"from": from_date, "to": to_date},
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = get_range_summary(event)
@@ -229,7 +229,7 @@ class TestGetRangeSummary:
             method="GET",
             resource="/daily-summary",
             query_params={"to": date.today().isoformat()},
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = get_range_summary(event)
@@ -245,7 +245,7 @@ class TestGetRangeSummary:
             method="GET",
             resource="/daily-summary",
             query_params={"from": date.today().isoformat()},
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = get_range_summary(event)
@@ -259,7 +259,7 @@ class TestGetRangeSummary:
             method="GET",
             resource="/daily-summary",
             query_params={"from": "invalid", "to": date.today().isoformat()},
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = get_range_summary(event)
@@ -273,7 +273,7 @@ class TestGetRangeSummary:
             method="GET",
             resource="/daily-summary",
             query_params={"from": date.today().isoformat(), "to": "invalid"},
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = get_range_summary(event)
@@ -288,7 +288,7 @@ class TestGetRangeSummary:
             method="GET",
             resource="/daily-summary",
             query_params={"from": today.isoformat(), "to": today.isoformat()},
-            cognito_user_id="non-existent-user"
+            auth_user_id="non-existent-user"
         )
 
         response = get_range_summary(event)

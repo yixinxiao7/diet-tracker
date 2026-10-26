@@ -15,7 +15,7 @@ def get_daily_summary(event):
     (populated by scheduled batch job). Falls back to live calculation if not found,
     ensuring freshness for same-day summaries.
     """
-    cognito_user_id = get_user_id(event)
+    auth_user_id = get_user_id(event)
     params = event.get("queryStringParameters") or {}
 
     date = params.get("date")
@@ -25,7 +25,7 @@ def get_daily_summary(event):
         return response(400, {"error": "Invalid date format"})
 
     conn = get_connection()
-    user_id = get_internal_user_id(conn, cognito_user_id)
+    user_id = get_internal_user_id(conn, auth_user_id)
     if not user_id:
         conn.close()
         return response(404, {"error": "User not found"})
@@ -43,7 +43,7 @@ def get_daily_summary(event):
 
         if cache_result:
             total_calories = cache_result[0]
-            logger.info("Fetched daily summary from cache", extra={"user_id": cognito_user_id, "date": date})
+            logger.info("Fetched daily summary from cache", extra={"user_id": auth_user_id, "date": date})
         else:
             # Fall back to live calculation if not in cache
             query = """
@@ -56,7 +56,7 @@ def get_daily_summary(event):
             """
             cur.execute(query, (user_id, date))
             total_calories = cur.fetchone()[0]
-            logger.info("Fetched daily summary (live calculation)", extra={"user_id": cognito_user_id, "date": date})
+            logger.info("Fetched daily summary (live calculation)", extra={"user_id": auth_user_id, "date": date})
     finally:
         cur.close()
         conn.close()
@@ -71,7 +71,7 @@ def get_range_summary(event):
     """
     GET /daily-summary?from=YYYY-MM-DD&to=YYYY-MM-DD
     """
-    cognito_user_id = get_user_id(event)
+    auth_user_id = get_user_id(event)
     params = event.get("queryStringParameters") or {}
 
     date_from = params.get("from")
@@ -85,7 +85,7 @@ def get_range_summary(event):
         return response(400, {"error": "Invalid date format"})
 
     conn = get_connection()
-    user_id = get_internal_user_id(conn, cognito_user_id)
+    user_id = get_internal_user_id(conn, auth_user_id)
     if not user_id:
         conn.close()
         return response(404, {"error": "User not found"})
@@ -116,7 +116,7 @@ def get_range_summary(event):
         cur.close()
         conn.close()
 
-    logger.info("Fetched range summary", extra={"user_id": cognito_user_id, "from": date_from, "to": date_to})
+    logger.info("Fetched range summary", extra={"user_id": auth_user_id, "from": date_from, "to": date_to})
     return response(200, {
         "from": date_from,
         "to": date_to,

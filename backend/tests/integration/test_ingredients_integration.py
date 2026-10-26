@@ -24,7 +24,7 @@ class TestCreateIngredient:
                 "calories_per_unit": 165,
                 "unit": "100g"
             },
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = create_ingredient(event)
@@ -46,7 +46,7 @@ class TestCreateIngredient:
                 "calories_per_unit": 165,
                 "unit": "100g"
             },
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = create_ingredient(event)
@@ -66,7 +66,7 @@ class TestCreateIngredient:
                 "calories_per_unit": -100,
                 "unit": "g"
             },
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = create_ingredient(event)
@@ -86,7 +86,7 @@ class TestCreateIngredient:
                 "calories_per_unit": 200000,
                 "unit": "g"
             },
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = create_ingredient(event)
@@ -106,7 +106,7 @@ class TestCreateIngredient:
                 "calories_per_unit": 100,
                 "unit": "g"
             },
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = create_ingredient(event)
@@ -126,7 +126,7 @@ class TestCreateIngredient:
                 "calories_per_unit": 100,
                 "unit": "g"
             },
-            cognito_user_id="non-existent-user"
+            auth_user_id="non-existent-user"
         )
 
         response = create_ingredient(event)
@@ -145,7 +145,7 @@ class TestListIngredients:
         event = mock_event_factory(
             method="GET",
             resource="/ingredients",
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = list_ingredients(event)
@@ -160,7 +160,7 @@ class TestListIngredients:
         event = mock_event_factory(
             method="GET",
             resource="/ingredients",
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = list_ingredients(event)
@@ -191,7 +191,7 @@ class TestListIngredients:
             method="GET",
             resource="/ingredients",
             query_params={"limit": "2"},
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = list_ingredients(event)
@@ -207,7 +207,7 @@ class TestListIngredients:
             method="GET",
             resource="/ingredients",
             query_params={"limit": "abc"},
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = list_ingredients(event)
@@ -230,7 +230,7 @@ class TestUpdateIngredient:
                 "calories_per_unit": 150,
                 "unit": "oz"
             },
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = update_ingredient(event)
@@ -253,7 +253,7 @@ class TestUpdateIngredient:
                 "calories_per_unit": 100,
                 "unit": "g"
             },
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = update_ingredient(event)
@@ -272,7 +272,7 @@ class TestUpdateIngredient:
                 "calories_per_unit": 100,
                 "unit": "g"
             },
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = update_ingredient(event)
@@ -302,7 +302,7 @@ class TestDeleteIngredient:
             method="DELETE",
             resource="/ingredients/{id}",
             path_params={"id": ingredient_id},
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = delete_ingredient(event)
@@ -319,7 +319,7 @@ class TestDeleteIngredient:
             method="DELETE",
             resource="/ingredients/{id}",
             path_params={"id": str(test_ingredient["id"])},
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = delete_ingredient(event)
@@ -336,7 +336,7 @@ class TestDeleteIngredient:
             resource="/ingredients/{id}",
             path_params={"id": str(test_ingredient["id"])},
             query_params={"force": "true"},
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = delete_ingredient(event)
@@ -350,7 +350,7 @@ class TestDeleteIngredient:
             method="DELETE",
             resource="/ingredients/{id}",
             path_params={"id": "123e4567-e89b-12d3-a456-426614174000"},
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = delete_ingredient(event)

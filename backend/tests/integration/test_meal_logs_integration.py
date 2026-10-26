@@ -25,7 +25,7 @@ class TestCreateMealLog:
                 "date": today,
                 "quantity": 1
             },
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = create_meal_log(event)
@@ -49,7 +49,7 @@ class TestCreateMealLog:
                 "date": today,
                 "quantity": 3
             },
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = create_meal_log(event)
@@ -65,7 +65,7 @@ class TestCreateMealLog:
             method="POST",
             resource="/meal-logs",
             body={"meal_id": "123e4567-e89b-12d3-a456-426614174000"},
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = create_meal_log(event)
@@ -85,7 +85,7 @@ class TestCreateMealLog:
                 "date": "01-15-2024",  # Wrong format
                 "quantity": 1
             },
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = create_meal_log(event)
@@ -105,7 +105,7 @@ class TestCreateMealLog:
                 "date": date.today().isoformat(),
                 "quantity": 1
             },
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = create_meal_log(event)
@@ -123,7 +123,7 @@ class TestCreateMealLog:
                 "date": date.today().isoformat(),
                 "quantity": 1
             },
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = create_meal_log(event)
@@ -143,7 +143,7 @@ class TestCreateMealLog:
                 "date": date.today().isoformat(),
                 "quantity": 0
             },
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = create_meal_log(event)
@@ -163,7 +163,7 @@ class TestCreateMealLog:
                 "date": date.today().isoformat(),
                 "quantity": -1
             },
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = create_meal_log(event)
@@ -181,7 +181,7 @@ class TestCreateMealLog:
                 "date": date.today().isoformat(),
                 "quantity": 20000
             },
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = create_meal_log(event)
@@ -201,7 +201,7 @@ class TestCreateMealLog:
                 "date": date.today().isoformat(),
                 "quantity": 1.5
             },
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = create_meal_log(event)
@@ -221,7 +221,7 @@ class TestCreateMealLog:
                 "date": date.today().isoformat(),
                 "quantity": True
             },
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = create_meal_log(event)
@@ -238,7 +238,7 @@ class TestListMealLogs:
         event = mock_event_factory(
             method="GET",
             resource="/meal-logs",
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = list_meal_logs(event)
@@ -265,7 +265,7 @@ class TestListMealLogs:
         event = mock_event_factory(
             method="GET",
             resource="/meal-logs",
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = list_meal_logs(event)
@@ -301,7 +301,7 @@ class TestListMealLogs:
             method="GET",
             resource="/meal-logs",
             query_params={"from": from_date, "to": to_date},
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = list_meal_logs(event)
@@ -317,7 +317,7 @@ class TestListMealLogs:
             method="GET",
             resource="/meal-logs",
             query_params={"from": "invalid-date"},
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = list_meal_logs(event)
@@ -345,7 +345,7 @@ class TestListMealLogs:
             method="GET",
             resource="/meal-logs",
             query_params={"limit": "5", "offset": "3"},
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = list_meal_logs(event)
@@ -379,7 +379,7 @@ class TestDeleteMealLog:
             method="DELETE",
             resource="/meal-logs/{id}",
             path_params={"id": str(log_id)},
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = delete_meal_log(event)
@@ -399,7 +399,7 @@ class TestDeleteMealLog:
             method="DELETE",
             resource="/meal-logs/{id}",
             path_params={"id": "123e4567-e89b-12d3-a456-426614174000"},
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = delete_meal_log(event)
@@ -413,7 +413,7 @@ class TestDeleteMealLog:
             method="DELETE",
             resource="/meal-logs/{id}",
             path_params={"id": "invalid-uuid"},
-            cognito_user_id=test_user["cognito_user_id"]
+            auth_user_id=test_user["auth_user_id"]
         )
 
         response = delete_meal_log(event)

@@ -32,7 +32,7 @@ def test_load_ingredient_calories():
 def test_get_user_id_or_404_not_found(monkeypatch):
     conn = FakeConnection(FakeCursor())
     monkeypatch.setattr(meals_module, "get_internal_user_id", lambda *_: None)
-    user_id, error = meals_module._get_user_id_or_404(conn, "cognito")
+    user_id, error = meals_module._get_user_id_or_404(conn, "auth-user")
     assert user_id is None
     assert error["statusCode"] == 404
     assert conn.closed is True
